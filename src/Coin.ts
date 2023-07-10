@@ -24,6 +24,18 @@ function nextHash(isLeft: Bool, hash: Field, nextHash: Field) {
   return Poseidon.hash([left1, right1]);
 }
 
+function calculateIndexAtHeight(witness: MerkleWitness32, h: number): Field {
+  let powerOfTwo = Field(1);
+  let index = Field(0);
+  let n = witness.height();
+
+  for (let i = h; i < n - 1; i++) {
+    index = Circuit.if(witness.isLeft[i], index, index.add(powerOfTwo));
+    powerOfTwo = powerOfTwo.mul(2);
+  }
+  return index;
+}
+
 function calculateUpdate2Roots(
   witness1: MerkleWitness32,
   witness2: MerkleWitness32,
@@ -37,24 +49,28 @@ function calculateUpdate2Roots(
   let idx1 = witness1.calculateIndex();
   let idx2 = witness2.calculateIndex();
 
-  for (let i = 1; i < n; ++i) {
-    let idx1_next = idx1.div(Field(2));
-    let idx2_next = idx2.div(Field(2));
+  for (let i = 1; i <= n - 1; ++i) {
+    let idx1_next = calculateIndexAtHeight(witness1, i);
+    let idx2_next = calculateIndexAtHeight(witness2, i);
+    let merged_hash = Poseidon.hash([hash1, hash2]); //nextHash(idx1.lessThanOrEqual(idx2), hash1, hash2);
+
+    if (i == n - 1) return merged_hash;
 
     hash1 = Circuit.if(
       idx1_next.equals(idx2_next),
-      Poseidon.hash([hash1, hash2]), //2 branches merged   FIXME need to swap order if idx2 < idx1
-      nextHash(witness1.isLeft[i - 1], hash1, witness1.path[i - 1]) //unmerged
+      Circuit.if(witness1.isLeft[i], merged_hash, witness1.path[i]),
+      nextHash(witness1.isLeft[i - 1], hash1, witness1.path[i - 1])
     );
     hash2 = Circuit.if(
       idx1_next.equals(idx2_next),
-      Poseidon.hash([hash1, hash2]), //2 branches merged   FIXME need to swap order if idx2 < idx1
-      nextHash(witness2.isLeft[i - 1], hash2, witness2.path[i - 1]) //unmerged
+      Circuit.if(witness1.isLeft[i], witness1.path[i], merged_hash),
+      nextHash(witness2.isLeft[i - 1], hash2, witness2.path[i - 1])
     );
 
     idx1 = idx1_next;
     idx2 = idx2_next;
   }
+
   return hash1;
 }
 

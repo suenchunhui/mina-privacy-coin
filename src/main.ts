@@ -59,7 +59,7 @@ function calculateUpdate2Roots(
   let idx1 = witness1.calculateIndex();
   let idx2 = witness2.calculateIndex();
 
-  console.log('d1 ', idx1, idx2);
+  //  console.log('d1 ', idx1, idx2);
 
   for (let i = 1; i < n; ++i) {
     let idx1_next = idx1.div(Field(2));
@@ -247,9 +247,9 @@ const newRoot3 = calculateUpdate2Roots(
   t3_sender_update_data_offline,
   t3_recipient_update_data_offline
 );
-console.log(senderWitness.calculateIndex().toString());
-console.log(recipientWitness.calculateIndex().toString());
-console.log(newRoot3.toString());
+// console.log(senderWitness.calculateIndex().toString());
+// console.log(recipientWitness.calculateIndex().toString());
+// console.log(newRoot3.toString());
 const publicTreeRoot3 = zkAppInstance.publicTreeRoot.get();
 console.log('tree root (offline): ', publicTree.getRoot().toString());
 console.log('tree root after txn2:', publicTreeRoot3.toString());
