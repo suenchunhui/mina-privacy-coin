@@ -16,6 +16,7 @@
   "scripts": {
     "build": "tsc",
     "buildw": "tsc --watch",
+    "main": "npm run build && node build/src/main.js",
     "coverage": "node --experimental-vm-modules --experimental-wasm-threads node_modules/jest/bin/jest.js --coverage",
     "format": "prettier --write --ignore-unknown **/*",
     "prepare": "husky install",
