@@ -9,6 +9,7 @@ import {
   Bool,
   Circuit,
   Poseidon,
+  Signature,
 } from 'snarkyjs';
 
 // more efficient version of `maybeSwapBad` which reuses an intermediate variable
