@@ -252,7 +252,7 @@ const newRoot3 = calculateUpdate2Roots(
 // console.log(newRoot3.toString());
 const publicTreeRoot3 = zkAppInstance.publicTreeRoot.get();
 console.log('tree root (offline): ', publicTree.getRoot().toString());
-console.log('tree root after txn2:', publicTreeRoot3.toString());
+console.log('tree root after txn3:', publicTreeRoot3.toString());
 
 // try {
 //   const txn2 = await Mina.transaction(senderAccount, () => {
