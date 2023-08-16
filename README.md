@@ -22,16 +22,7 @@ node build/src/main.js
 
 ## How to run tests
 
-```
-npm run test
-npm run testw # watch mode
-```
-
-## How to run coverage
-
-```
-npm run coverage
-```
+WIP
 
 ## License
 
