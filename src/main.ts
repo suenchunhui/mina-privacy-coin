@@ -104,10 +104,17 @@ const zkAppPrivateKey = PrivateKey.random();
 const zkAppAddress = zkAppPrivateKey.toPublicKey();
 
 // Create a public/private key pair. For users
+//public users
 const user1_priv = PrivateKey.random();
 const user1_pk = user1_priv.toPublicKey();
 const user2_priv = PrivateKey.random();
 const user2_pk = user2_priv.toPublicKey();
+
+//private users
+const pv_user3_priv = PrivateKey.random();
+const pv_user3_pk = pv_user3_priv.toPublicKey();
+const pv_user4_priv = PrivateKey.random();
+const pv_user4_pk = pv_user4_priv.toPublicKey();
 
 // --- create an instance of Coin - and deploy it to zkAppAddress ---
 const zkAppInstance = new Coin(zkAppAddress);
@@ -131,7 +138,7 @@ const publicTreeRoot1 = zkAppInstance.publicTreeRoot.get();
 console.log('tree state:           ', initialPublicRoot.toString());
 console.log('tree state after txn1:', publicTreeRoot1.toString());
 
-// ----------------------- public mint -----------------------------
+// ----------------------- tx2 public mint -----------------------------
 
 console.log('--- tx2 public mint ---');
 
@@ -173,12 +180,12 @@ const publicTreeRoot2 = zkAppInstance.publicTreeRoot.get();
 console.log('tree state (offline): ', publicTree.getRoot().toString());
 console.log('tree state after txn2:', publicTreeRoot2.toString());
 
-// ----------------------- public transfer -----------------------------
+// ----------------------- tx3 public transfer -----------------------------
 
 console.log('--- tx3 public transfer ---');
 
 const user2_idx = BigInt(6);
-const transfer_amt = Field(7);
+const tx3_transfer_amt = Field(7);
 
 const senderWitness = new MerkleWitness32(publicTree.getWitness(user1_idx));
 const recipientWitness = new MerkleWitness32(publicTree.getWitness(user2_idx));
@@ -189,6 +196,7 @@ const txn3 = await Mina.transaction(senderAccount, () => {
     senderWitness,
     user1_pk,
     mint_amt, //sender bal
+    //sig, //signature TODO
 
     //recipient
     Bool(true), //emptyRecipientLeaf
@@ -197,13 +205,14 @@ const txn3 = await Mina.transaction(senderAccount, () => {
     Field(0), //recipientBal
 
     //amount
-    transfer_amt
+    tx3_transfer_amt
   );
 });
 
 await txn3.prove();
 await txn3.sign([senderKey]).send();
 
+/*
 //events
 //console.log(JSON.stringify(txn3.transaction.accountUpdates[0].body.events));
 // {"hash":"8420083281727309776268175983587936228533289388643792574454353586744076044682","data":[["0","16653878613474267232387783887715849643420830000568047238359874635599369047919"],["1","6"],["0","1252359999092379544927346963835485216706032159767292630364506968907055786443"],["1","2"]]}
@@ -219,9 +228,9 @@ const t3_recipient_update_data =
 //update off-chain tree
 const t3_sender_update_data_offline = publicLeaf(
   user1_pk,
-  mint_amt.sub(transfer_amt)
+  mint_amt.sub(tx3_transfer_amt)
 );
-const t3_recipient_update_data_offline = publicLeaf(user2_pk, transfer_amt);
+const t3_recipient_update_data_offline = publicLeaf(user2_pk, tx3_transfer_amt);
 
 console.log(
   `sender update:    index: ${t3_sender_update_idx} data: ${t3_sender_update_data}`
@@ -250,9 +259,13 @@ const newRoot3 = calculateUpdate2Roots(
 // console.log(senderWitness.calculateIndex().toString());
 // console.log(recipientWitness.calculateIndex().toString());
 // console.log(newRoot3.toString());
+*/
 const publicTreeRoot3 = zkAppInstance.publicTreeRoot.get();
 console.log('tree root (offline): ', publicTree.getRoot().toString());
 console.log('tree root after txn3:', publicTreeRoot3.toString());
+
+let user1_bal = mint_amt.sub(tx3_transfer_amt);
+let user2_bal = Field(tx3_transfer_amt);
 
 // try {
 //   const txn2 = await Mina.transaction(senderAccount, () => {
@@ -265,6 +278,24 @@ console.log('tree root after txn3:', publicTreeRoot3.toString());
 // }
 // const num2 = zkAppInstance.num.get();
 // console.log('state after txn2:', num2.toString());
+
+// ----------------------- tx4 init private -----------------------------
+
+console.log('--- tx4 init private ---');
+
+const prv_user3_idx = BigInt(11);
+let pv_user3_blindBal = Field(0);
+const pv_user3_blindNonce = Field(283476); //TODO, to use random
+const pv_user3_blindHash = Poseidon.hash([pv_user3_blindNonce]);
+
+const witness4 = new MerkleWitness32(privateTree.getWitness(prv_user3_idx));
+
+const txn4 = await Mina.transaction(senderAccount, () => {
+  zkAppInstance.initPrivate(witness4, pv_user3_pk, pv_user3_blindNonce);
+});
+
+await txn4.prove();
+await txn4.sign([senderKey]).send();
 
 // ----------------------------------------------------
 console.log('Shutting down');
