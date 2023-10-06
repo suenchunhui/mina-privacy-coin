@@ -29,6 +29,21 @@ function publicLeaf(recipient: PublicKey, amount: Field): Field {
   return Poseidon.hash([pkfields[0], pkfields[1], amount]);
 }
 
+function privateLeaf(
+  recipient: PublicKey,
+  amount: Field,
+  blindingNonce: Field
+): Field {
+  const pkfields = recipient.toFields();
+  const left = Poseidon.hash([
+    pkfields[0],
+    pkfields[1],
+    blindingNonce.add(amount),
+  ]);
+  const right = Poseidon.hash([blindingNonce]);
+  return Poseidon.hash([left, right]);
+}
+
 function maybeSwap(b: Bool, x: Field, y: Field): [Field, Field] {
   // if(b.equals(Bool(true))){
   //   return [x, y];
@@ -260,6 +275,16 @@ const newRoot3 = calculateUpdate2Roots(
 // console.log(recipientWitness.calculateIndex().toString());
 // console.log(newRoot3.toString());
 */
+
+//update off-chain tree
+const t3_sender_update_data_offline = publicLeaf(
+  user1_pk,
+  mint_amt.sub(tx3_transfer_amt)
+);
+const t3_recipient_update_data_offline = publicLeaf(user2_pk, tx3_transfer_amt);
+publicTree.setLeaf(user1_idx, t3_sender_update_data_offline);
+publicTree.setLeaf(user2_idx, t3_recipient_update_data_offline);
+
 const publicTreeRoot3 = zkAppInstance.publicTreeRoot.get();
 console.log('tree root (offline): ', publicTree.getRoot().toString());
 console.log('tree root after txn3:', publicTreeRoot3.toString());
@@ -284,8 +309,9 @@ let user2_bal = Field(tx3_transfer_amt);
 console.log('--- tx4 init private ---');
 
 const prv_user3_idx = BigInt(11);
-let pv_user3_blindBal = Field(0);
 const pv_user3_blindNonce = Field(283476); //TODO, to use random
+let pv_user3_bal = Field(0);
+let pv_user3_blindBal = Field(pv_user3_blindNonce);
 const pv_user3_blindHash = Poseidon.hash([pv_user3_blindNonce]);
 
 const witness4 = new MerkleWitness32(privateTree.getWitness(prv_user3_idx));
@@ -297,10 +323,77 @@ const txn4 = await Mina.transaction(senderAccount, () => {
 await txn4.prove();
 await txn4.sign([senderKey]).send();
 
-// ----------------------------------------------------
-console.log('Shutting down');
-await shutdown();
+//update off-chain tree
+const t4_update_data_offline = privateLeaf(
+  pv_user3_pk,
+  Field(0),
+  pv_user3_blindNonce
+);
+privateTree.setLeaf(prv_user3_idx, t4_update_data_offline);
+
+const privateTreeRoot4 = zkAppInstance.privateTreeRoot.get();
+console.log('private tree root (offline): ', privateTree.getRoot().toString());
+console.log('private tree root after txn4:', privateTreeRoot4.toString());
 
 // ----------------------------------------------------
 // console.log('Shutting down')
+// ----------------------- public->private transfer -----------------------------
+
+console.log('--- tx5 public to private transfer ---');
+
+const tx5_transfer_amt = Field(5);
+const senderWitness5 = new MerkleWitness32(publicTree.getWitness(user2_idx));
+const recipientWitness5 = new MerkleWitness32(
+  privateTree.getWitness(prv_user3_idx)
+);
+
+const txn5 = await Mina.transaction(senderAccount, () => {
+  zkAppInstance.transferToPrivate(
+    //sender
+    senderWitness5,
+    user2_pk,
+    user2_bal,
+    //sig, //signature TODO
+
+    //recipient
+    recipientWitness5,
+    pv_user3_pk,
+    pv_user3_blindBal,
+    pv_user3_blindHash,
+
+    //amount
+    tx5_transfer_amt
+  );
+});
+
+await txn5.prove();
+await txn5.sign([senderKey]).send();
+
+//update off-chain tree
+const t5_sender_update_data_offline = publicLeaf(
+  user2_pk,
+  user2_bal.sub(tx5_transfer_amt)
+);
+publicTree.setLeaf(user2_idx, t5_sender_update_data_offline);
+const t5_recipient_update_data_offline = privateLeaf(
+  pv_user3_pk,
+  tx5_transfer_amt,
+  pv_user3_blindNonce
+);
+privateTree.setLeaf(prv_user3_idx, t5_recipient_update_data_offline);
+
+user2_bal = user2_bal.sub(tx5_transfer_amt);
+pv_user3_bal = tx5_transfer_amt;
+
+const publicTreeRoot5 = zkAppInstance.publicTreeRoot.get();
+console.log('public tree root (offline): ', publicTree.getRoot().toString());
+console.log('public tree root after txn5:', publicTreeRoot5.toString());
+
+const privateTreeRoot5 = zkAppInstance.privateTreeRoot.get();
+console.log('private tree root (offline): ', privateTree.getRoot().toString());
+console.log('private tree root after txn5:', privateTreeRoot5.toString());
+
 // await shutdown();
+// ----------------------------------------------------
+console.log('Shutting down');
+await shutdown();
