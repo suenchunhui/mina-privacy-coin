@@ -407,7 +407,7 @@ export class Coin extends SmartContract {
     );
 
     //calculate new private root
-    const privateRootAfter = recipientWitness.calculateRoot(leafData1);
+    const privateRootAfter = senderWitness.calculateRoot(leafData1);
 
     // set the new private root
     this.privateTreeRoot.set(privateRootAfter);
@@ -416,7 +416,7 @@ export class Coin extends SmartContract {
     const leafData2 = this.publicLeaf(recipient, recipientBal.add(amount));
 
     //calculate new public root
-    const publicRootAfter = senderWitness.calculateRoot(leafData2);
+    const publicRootAfter = recipientWitness.calculateRoot(leafData2);
 
     // set the new public root
     this.publicTreeRoot.set(publicRootAfter);

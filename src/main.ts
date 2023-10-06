@@ -197,7 +197,7 @@ console.log('tree state after txn2:', publicTreeRoot2.toString());
 
 // ----------------------- tx3 public transfer -----------------------------
 
-console.log('--- tx3 public transfer ---');
+console.log('--- tx3 public-public transfer ---');
 
 const user2_idx = BigInt(6);
 const tx3_transfer_amt = Field(7);
@@ -335,7 +335,7 @@ const privateTreeRoot4 = zkAppInstance.privateTreeRoot.get();
 console.log('private tree root (offline): ', privateTree.getRoot().toString());
 console.log('private tree root after txn4:', privateTreeRoot4.toString());
 
-// ----------------------- public->private transfer -----------------------------
+// ----------------------- tx5 public->private transfer -----------------------------
 
 console.log('--- tx5 public to private transfer ---');
 
@@ -395,7 +395,7 @@ console.log('private tree root after txn5:', privateTreeRoot5.toString());
 
 console.log('--- tx6 init private (pv_user4) ---');
 
-const prv_user4_idx = BigInt(25);
+const prv_user4_idx = BigInt(12);
 const pv_user4_blindNonce = Field(123123); //TODO, to use random
 let pv_user4_bal = Field(0);
 let pv_user4_blindBal = Field(pv_user4_blindNonce);
@@ -422,6 +422,118 @@ const privateTreeRoot6 = zkAppInstance.privateTreeRoot.get();
 console.log('private tree root (offline): ', privateTree.getRoot().toString());
 console.log('private tree root after txn6:', privateTreeRoot6.toString());
 
+// ----------------------- tx7 private->private transfer -----------------------------
+
+console.log('--- tx7 private to private transfer ---');
+
+const tx7_transfer_amt = Field(3);
+const senderWitness7 = new MerkleWitness32(
+  privateTree.getWitness(prv_user3_idx)
+);
+const recipientWitness7 = new MerkleWitness32(
+  privateTree.getWitness(prv_user4_idx)
+);
+
+const txn7 = await Mina.transaction(senderAccount, () => {
+  zkAppInstance.transferPrivateToPrivate(
+    //sender
+    senderWitness7,
+    pv_user3_pk,
+    pv_user3_bal,
+    pv_user3_blindNonce,
+    //sig, //signature TODO
+
+    //recipient
+    recipientWitness7,
+    pv_user4_pk,
+    pv_user4_blindBal,
+    pv_user4_blindHash,
+
+    //amount
+    tx7_transfer_amt
+  );
+});
+
+await txn7.prove();
+await txn7.sign([senderKey]).send();
+
+//update off-chain tree
+const t7_sender_update_data_offline = privateLeaf(
+  pv_user3_pk,
+  pv_user3_bal.sub(tx7_transfer_amt),
+  pv_user3_blindNonce
+);
+const t7_recipient_update_data_offline = privateLeaf(
+  pv_user4_pk,
+  tx7_transfer_amt,
+  pv_user4_blindNonce
+);
+privateTree.setLeaf(prv_user3_idx, t7_sender_update_data_offline);
+privateTree.setLeaf(prv_user4_idx, t7_recipient_update_data_offline);
+
+pv_user3_bal = pv_user3_bal.sub(tx7_transfer_amt);
+pv_user4_bal = tx7_transfer_amt;
+
+const privateTreeRoot7 = zkAppInstance.privateTreeRoot.get();
+console.log('private tree root (offline): ', privateTree.getRoot().toString());
+console.log('private tree root after txn7:', privateTreeRoot7.toString());
+
+// ----------------------- tx8 private->public transfer -----------------------------
+
+console.log('--- tx8 private to public transfer ---');
+
+const tx8_transfer_amt = Field(2);
+const senderWitness8 = new MerkleWitness32(
+  privateTree.getWitness(prv_user4_idx)
+);
+const recipientWitness8 = new MerkleWitness32(publicTree.getWitness(user1_idx));
+
+const txn8 = await Mina.transaction(senderAccount, () => {
+  zkAppInstance.transferToPublic(
+    //sender
+    senderWitness8,
+    pv_user4_pk,
+    pv_user4_bal,
+    pv_user4_blindNonce,
+    //sig, //signature TODO
+
+    //recipient
+    recipientWitness8,
+    user1_pk,
+    user1_bal,
+
+    //amount
+    tx8_transfer_amt
+  );
+});
+
+await txn8.prove();
+await txn8.sign([senderKey]).send();
+
+//update off-chain tree
+const t8_sender_update_data_offline = privateLeaf(
+  pv_user4_pk,
+  pv_user4_bal.sub(tx8_transfer_amt),
+  pv_user4_blindNonce
+);
+const t8_recipient_update_data_offline = publicLeaf(
+  user1_pk,
+  user1_bal.add(tx8_transfer_amt)
+);
+privateTree.setLeaf(prv_user4_idx, t8_sender_update_data_offline);
+publicTree.setLeaf(user1_idx, t8_recipient_update_data_offline);
+
+pv_user4_bal = pv_user4_bal.sub(tx8_transfer_amt);
+user1_bal = user1_bal.add(tx8_transfer_amt);
+
+const privateTreeRoot8 = zkAppInstance.privateTreeRoot.get();
+console.log('private tree root (offline): ', privateTree.getRoot().toString());
+console.log('private tree root after txn8:', privateTreeRoot8.toString());
+
+const publicTreeRoot8 = zkAppInstance.publicTreeRoot.get();
+console.log('public tree root (offline): ', publicTree.getRoot().toString());
+console.log('public tree root after txn8:', publicTreeRoot8.toString());
+
 // ----------------------------------------------------
-console.log('Shutting down');
+console.log('--- Shutting down ---');
 await shutdown();
