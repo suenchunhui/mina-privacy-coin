@@ -306,7 +306,7 @@ let user2_bal = Field(tx3_transfer_amt);
 
 // ----------------------- tx4 init private -----------------------------
 
-console.log('--- tx4 init private ---');
+console.log('--- tx4 init private (pv_user3) ---');
 
 const prv_user3_idx = BigInt(11);
 const pv_user3_blindNonce = Field(283476); //TODO, to use random
@@ -335,8 +335,6 @@ const privateTreeRoot4 = zkAppInstance.privateTreeRoot.get();
 console.log('private tree root (offline): ', privateTree.getRoot().toString());
 console.log('private tree root after txn4:', privateTreeRoot4.toString());
 
-// ----------------------------------------------------
-// console.log('Shutting down')
 // ----------------------- public->private transfer -----------------------------
 
 console.log('--- tx5 public to private transfer ---');
@@ -393,7 +391,37 @@ const privateTreeRoot5 = zkAppInstance.privateTreeRoot.get();
 console.log('private tree root (offline): ', privateTree.getRoot().toString());
 console.log('private tree root after txn5:', privateTreeRoot5.toString());
 
-// await shutdown();
+// ----------------------- tx6 init private -----------------------------
+
+console.log('--- tx6 init private (pv_user4) ---');
+
+const prv_user4_idx = BigInt(25);
+const pv_user4_blindNonce = Field(123123); //TODO, to use random
+let pv_user4_bal = Field(0);
+let pv_user4_blindBal = Field(pv_user4_blindNonce);
+const pv_user4_blindHash = Poseidon.hash([pv_user4_blindNonce]);
+
+const witness6 = new MerkleWitness32(privateTree.getWitness(prv_user4_idx));
+
+const txn6 = await Mina.transaction(senderAccount, () => {
+  zkAppInstance.initPrivate(witness6, pv_user4_pk, pv_user4_blindNonce);
+});
+
+await txn6.prove();
+await txn6.sign([senderKey]).send();
+
+//update off-chain tree
+const t6_update_data_offline = privateLeaf(
+  pv_user4_pk,
+  Field(0),
+  pv_user4_blindNonce
+);
+privateTree.setLeaf(prv_user4_idx, t6_update_data_offline);
+
+const privateTreeRoot6 = zkAppInstance.privateTreeRoot.get();
+console.log('private tree root (offline): ', privateTree.getRoot().toString());
+console.log('private tree root after txn6:', privateTreeRoot6.toString());
+
 // ----------------------------------------------------
 console.log('Shutting down');
 await shutdown();
