@@ -14,15 +14,11 @@ This code base serves as a proof-of-concept of a privacy token built on mina pro
 npm run build
 ```
 
-## How to run main script
+## How to run main e2e test script
 
 ```
-node build/src/main.js
+npm run main
 ```
-
-## How to run tests
-
-WIP
 
 ## License
 
