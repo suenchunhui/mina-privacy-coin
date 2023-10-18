@@ -11,10 +11,10 @@ import {
   PublicKey,
   Poseidon,
   Bool,
-} from 'snarkyjs';
+} from 'o1js';
 
 // await isReady;
-console.log('SnarkyJS loaded');
+console.log('o1js loaded');
 const useProof = false;
 const Local = Mina.LocalBlockchain({ proofsEnabled: useProof });
 Mina.setActiveInstance(Local);

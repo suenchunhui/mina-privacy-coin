@@ -10,7 +10,7 @@ import {
   Circuit,
   Poseidon,
   Signature,
-} from 'snarkyjs';
+} from 'o1js';
 
 // more efficient version of `maybeSwapBad` which reuses an intermediate variable
 function maybeSwap(b: Bool, x: Field, y: Field): [Field, Field] {
