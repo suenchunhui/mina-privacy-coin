@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { Coin } from './Coin.js';
 import {
   isReady,
@@ -13,15 +14,25 @@ import {
   Bool,
 } from 'o1js';
 
-// await isReady;
-console.log('o1js loaded');
-const useProof = false;
-const Local = Mina.LocalBlockchain({ proofsEnabled: useProof });
-Mina.setActiveInstance(Local);
-const { privateKey: deployerKey, publicKey: deployerAccount } =
-  Local.testAccounts[0];
-const { privateKey: senderKey, publicKey: senderAccount } =
-  Local.testAccounts[1];
+const transactionFee = 100_000_000;
+let senderKey: PrivateKey, senderAccount: PublicKey;
+let Local;
+if (process.env.NetworkURL && process.env.SenderPrivateKey) {
+  const MinaNetwork = Mina.Network(process.env.NetworkURL);
+  Mina.setActiveInstance(MinaNetwork);
+  console.log('Using network: ' + process.env.NetworkURL);
+
+  senderKey = PrivateKey.fromBase58(process.env.SenderPrivateKey);
+  senderAccount = senderKey.toPublicKey();
+} else {
+  const useProof = false;
+  Local = Mina.LocalBlockchain({ proofsEnabled: useProof });
+  Mina.setActiveInstance(Local);
+  console.log('Using local network');
+
+  senderKey = Local.testAccounts[1].privateKey;
+  senderAccount = Local.testAccounts[1].publicKey;
+}
 
 // --- additional functions ---
 function publicLeaf(recipient: PublicKey, amount: Field): Field {
@@ -54,11 +65,7 @@ const privateTree = new MerkleTree(height);
 const initialPublicRoot = publicTree.getRoot();
 const initialPrivateRoot = privateTree.getRoot();
 
-// ----------------------------------------------------
-// Create a public/private key pair. The public key is your address and where you deploy the zkApp to
-const zkAppPrivateKey = PrivateKey.random();
-const zkAppAddress = zkAppPrivateKey.toPublicKey();
-
+// --- init users ---
 // Create a public/private key pair. For users
 //public users
 const user1_priv = PrivateKey.random();
@@ -72,14 +79,39 @@ const pv_user3_pk = pv_user3_priv.toPublicKey();
 const pv_user4_priv = PrivateKey.random();
 const pv_user4_pk = pv_user4_priv.toPublicKey();
 
-// --- create an instance of Coin - and deploy it to zkAppAddress ---
-const zkAppInstance = new Coin(zkAppAddress);
-const deployTxn = await Mina.transaction(deployerAccount, () => {
-  AccountUpdate.fundNewAccount(deployerAccount);
-  zkAppInstance.deploy();
-});
-await deployTxn.sign([deployerKey, zkAppPrivateKey]).send();
+//init contract
+let zkAppAddress;
+let zkAppInstance: Coin;
+if (process.env.NetworkURL && process.env.ZkAppAddress) {
+  // --- use deployed contract ---
+  zkAppAddress = PrivateKey.fromBase58(process.env.ZkAppAddress).toPublicKey();
+  zkAppInstance = new Coin(zkAppAddress);
+  console.log('Using deployed contract at: ' + process.env.ZkAppAddress);
+} else {
+  // --- deploy new contract ----
+  // Create a public/private key pair. The public key is your address and where you deploy the zkApp to
+  const zkAppPrivateKey = PrivateKey.random();
+  zkAppAddress = zkAppPrivateKey.toPublicKey();
+  let deployerAccount: PublicKey, deployerKey: PrivateKey;
+  if (process.env.deployerPrivateKey) {
+    deployerKey = PrivateKey.fromBase58(process.env.deployerPrivateKey);
+    deployerAccount = deployerKey.toPublicKey();
+  } else if (Local) {
+    deployerKey = Local.testAccounts[0].privateKey;
+    deployerAccount = Local.testAccounts[0].publicKey;
+  } else {
+    console.log('Error: missing deployer key on non-local chain');
+    process.exit(-1);
+  }
 
+  // --- create an instance of Coin - and deploy it to zkAppAddress ---
+  zkAppInstance = new Coin(zkAppAddress);
+  const deployTxn = await Mina.transaction(deployerAccount, () => {
+    AccountUpdate.fundNewAccount(deployerAccount);
+    zkAppInstance.deploy();
+  });
+  await deployTxn.sign([deployerKey, zkAppPrivateKey]).send();
+}
 // -------------------- initState --------------------------------
 
 console.log('--- deploy & init state ---');
@@ -116,12 +148,10 @@ const txn2 = await Mina.transaction(senderAccount, () => {
 await txn2.prove();
 const d = await txn2.sign([senderKey]).send();
 //events
-//console.log(JSON.stringify(txn2.transaction.accountUpdates[0].body.events));
 const t2_leaf_update_idx =
   txn2.transaction.accountUpdates[0].body.events.data[1][1];
 const t2_leaf_update_data =
   txn2.transaction.accountUpdates[0].body.events.data[0][1];
-//{"hash":"12393868177935264191752570151485810140810451890747428365625097772266920554115","data":[["0","9519604085841783924758137287891343162741228469678299686306150972915523071408"],["1","5"]]}
 console.log(
   `leaf update: index: ${t2_leaf_update_idx} data: ${t2_leaf_update_data}`
 );
