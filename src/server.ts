@@ -1,3 +1,4 @@
+import express, { Express, Request, Response } from 'express';
 import { Coin } from './Coin.js';
 import {
   Field,
@@ -22,10 +23,49 @@ class MerkleListener {
   privateTree: MerkleTree;
   lastFetched: UInt32 = UInt32.from(0);
 
-  constructor(inst: Coin, height: number) {
+  constructor(inst: Coin, height: number, serverPort = -1) {
     this.coinInstance = inst;
     this.publicTree = new MerkleTree(height);
     this.privateTree = new MerkleTree(height);
+
+    //express server to return tree root and witness using rest api
+    if (serverPort > 0) {
+      let app = express();
+      app.get('/:tree/:fn', (req: Request, res: Response) => {
+        let tree: MerkleTree;
+        switch (req.params.tree) {
+          case 'public':
+            tree = this.publicTree;
+            break;
+          case 'private':
+            tree = this.privateTree;
+            break;
+          default:
+            throw Error('Undefined tree selector');
+        }
+
+        switch (req.params.fn) {
+          case 'root':
+            res.send(tree.getRoot().toString());
+            break;
+          case 'witness':
+            if (req.query.index) {
+              res.send(
+                tree.getWitness(BigInt(req.query.index.toString())).toString()
+              );
+            } else {
+              throw Error('Missing witness index');
+            }
+            break;
+          default:
+            throw Error('Undefined function selector');
+        }
+      });
+
+      app.listen(serverPort, () => {
+        console.log(`MerkleListener rest api started on port ${serverPort}`);
+      });
+    }
   }
 
   async fetchEvents() {
