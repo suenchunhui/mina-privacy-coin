@@ -14,8 +14,10 @@ import {
   Poseidon,
   Bool,
 } from 'o1js';
+import axios from 'axios';
 
 const transactionFee = 100_000_000;
+const api_port = 30001;
 let senderKey: PrivateKey, senderAccount: PublicKey;
 let Local;
 if (process.env.NetworkURL && process.env.SenderPrivateKey) {
@@ -118,7 +120,7 @@ if (process.env.NetworkURL && process.env.ZkAppAddress) {
 
 console.log('--- deploy & init state ---');
 
-merkleListener = new MerkleListener(zkAppInstance, height);
+merkleListener = new MerkleListener(zkAppInstance, height, api_port);
 
 const txn1 = await Mina.transaction(senderAccount, () => {
   zkAppInstance.initState(initialPublicRoot, initialPrivateRoot);
@@ -167,6 +169,8 @@ console.log(
 const t2_leaf_update_data_offline = publicLeaf(user1_pk, mint_amt);
 console.log(`leaf data computation:      ${t2_leaf_update_data_offline}`);
 publicTree.setLeaf(user1_idx, publicLeaf(user1_pk, mint_amt));
+
+const tmp = await axios.get(`http://localhost:${api_port}/public/root`);
 
 //compare merkle root
 const publicTreeRoot2 = zkAppInstance.publicTreeRoot.get();
@@ -465,4 +469,5 @@ console.log('public tree root after txn8:', publicTreeRoot8.toString());
 
 // ----------------------------------------------------
 console.log('--- Shutting down ---');
+merkleListener.shutdown();
 await shutdown();

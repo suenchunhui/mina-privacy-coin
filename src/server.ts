@@ -22,6 +22,7 @@ class MerkleListener {
   publicTree: MerkleTree;
   privateTree: MerkleTree;
   lastFetched: UInt32 = UInt32.from(0);
+  server;
 
   constructor(inst: Coin, height: number, serverPort = -1) {
     this.coinInstance = inst;
@@ -46,13 +47,13 @@ class MerkleListener {
 
         switch (req.params.fn) {
           case 'root':
-            res.send(tree.getRoot().toString());
+            res.json(tree.getRoot().toJSON());
             break;
           case 'witness':
             if (req.query.index) {
-              res.send(
-                tree.getWitness(BigInt(req.query.index.toString())).toString()
-              );
+              let w = tree.getWitness(BigInt(req.query.index.toString()));
+              //let output = '';
+              res.send(JSON.stringify(w));
             } else {
               throw Error('Missing witness index');
             }
@@ -62,7 +63,7 @@ class MerkleListener {
         }
       });
 
-      app.listen(serverPort, () => {
+      this.server = app.listen(serverPort, () => {
         console.log(`MerkleListener rest api started on port ${serverPort}`);
       });
     }
@@ -115,6 +116,14 @@ class MerkleListener {
       console.log(
         `  Updating private tree: index=${private_index} value=${private_leaf}`
       );
+    }
+  }
+
+  shutdown() {
+    if (this.server) {
+      this.server.close(() => {
+        console.log('Server closed');
+      });
     }
   }
 }
