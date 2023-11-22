@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { Coin } from './Coin.js';
+import MerkleListener from './server.js';
 import {
   isReady,
   shutdown,
@@ -64,6 +65,7 @@ const publicTree = new MerkleTree(height);
 const privateTree = new MerkleTree(height);
 const initialPublicRoot = publicTree.getRoot();
 const initialPrivateRoot = privateTree.getRoot();
+let merkleListener;
 
 // --- init users ---
 // Create a public/private key pair. For users
@@ -116,6 +118,8 @@ if (process.env.NetworkURL && process.env.ZkAppAddress) {
 
 console.log('--- deploy & init state ---');
 
+merkleListener = new MerkleListener(zkAppInstance, height);
+
 const txn1 = await Mina.transaction(senderAccount, () => {
   zkAppInstance.initState(initialPublicRoot, initialPrivateRoot);
 });
@@ -147,7 +151,10 @@ const txn2 = await Mina.transaction(senderAccount, () => {
 });
 await txn2.prove();
 const d = await txn2.sign([senderKey]).send();
+
 //events
+await merkleListener.fetchEvents();
+
 const t2_leaf_update_idx =
   txn2.transaction.accountUpdates[0].body.events.data[1][1];
 const t2_leaf_update_data =
@@ -198,6 +205,8 @@ const txn3 = await Mina.transaction(senderAccount, () => {
 await txn3.prove();
 await txn3.sign([senderKey]).send();
 
+await merkleListener.fetchEvents();
+
 //update off-chain tree
 const t3_sender_update_data_offline = publicLeaf(
   user1_pk,
@@ -232,6 +241,8 @@ const txn4 = await Mina.transaction(senderAccount, () => {
 
 await txn4.prove();
 await txn4.sign([senderKey]).send();
+
+await merkleListener.fetchEvents();
 
 //update off-chain tree
 const t4_update_data_offline = privateLeaf(
@@ -277,6 +288,8 @@ const txn5 = await Mina.transaction(senderAccount, () => {
 await txn5.prove();
 await txn5.sign([senderKey]).send();
 
+await merkleListener.fetchEvents();
+
 //update off-chain tree
 const t5_sender_update_data_offline = publicLeaf(
   user2_pk,
@@ -319,6 +332,8 @@ const txn6 = await Mina.transaction(senderAccount, () => {
 
 await txn6.prove();
 await txn6.sign([senderKey]).send();
+
+await merkleListener.fetchEvents();
 
 //update off-chain tree
 const t6_update_data_offline = privateLeaf(
@@ -366,6 +381,8 @@ const txn7 = await Mina.transaction(senderAccount, () => {
 
 await txn7.prove();
 await txn7.sign([senderKey]).send();
+
+await merkleListener.fetchEvents();
 
 //update off-chain tree
 const t7_sender_update_data_offline = privateLeaf(
@@ -419,6 +436,8 @@ const txn8 = await Mina.transaction(senderAccount, () => {
 
 await txn8.prove();
 await txn8.sign([senderKey]).send();
+
+await merkleListener.fetchEvents();
 
 //update off-chain tree
 const t8_sender_update_data_offline = privateLeaf(
