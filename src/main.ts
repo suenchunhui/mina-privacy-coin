@@ -369,30 +369,54 @@ console.log('private tree root after txn5:', privateTreeRoot5.toString());
 console.log('--- tx7 private to private transfer ---');
 
 const tx7_transfer_amt = Field(3);
-const senderWitness7 = new MerkleWitness32(
-  privateTree.getWitness(prv_user3_idx)
+let senderNonce0 = Field(Math.floor(Math.random() * 100000));
+let utxo0 = privateUTXOLeaf(pv_user3_pk, tx7_transfer_amt, senderNonce0);
+let nullifer0 = Nullifier.fromJSON(
+  Nullifier.createTestNullifier([utxo0], pv_user3_priv)
 );
-const recipientWitness7 = new MerkleWitness32(
-  privateTree.getWitness(prv_user4_idx)
-);
+let utxoIndex = Field(0);
+let calculatedKey = nullifierKey(pv_user3_pk, utxoIndex);
+const nulliferWitness0 = nullifierTree.getWitness(calculatedKey);
+let utxoWitness0 = new MerkleWitness32(privateTree.getWitness(0n));
+let newPrivateWitness0 = new MerkleWitness32(privateTree.getWitness(1n)); //FIXME
+let newPrivateWitness1 = new MerkleWitness32(privateTree.getWitness(2n)); //FIXME
+
+let tx7_recipientNonce0 = Field(Math.floor(Math.random() * 100000));
+let tx7_recipientNonce1 = Field(Math.floor(Math.random() * 100000));
 
 const txn7 = await Mina.transaction(senderAccount, () => {
   zkAppInstance.transferPrivateToPrivate(
     //sender
-    senderWitness7,
     pv_user3_pk,
-    pv_user3_bal,
-    pv_user3_blindNonce,
-    //sig, //signature TODO
 
-    //recipient
-    recipientWitness7,
+    //utxo0 to spend
+    nullifer0,
+    nulliferWitness0,
+    utxoWitness0,
+    tx7_transfer_amt,
+    tx5_nonce,
+
+    //utxo1 (null utxo)
+    nullifer0,
+    nulliferWitness0,
+    utxoWitness0,
+    tx7_transfer_amt,
+    senderNonce0,
+
+    //senderSig: Signature, //TODO
+
+    //private recipients
+    //send to user4
     pv_user4_pk,
-    pv_user4_blindBal,
-    pv_user4_blindHash,
+    tx7_transfer_amt,
+    tx7_recipientNonce0,
+    newPrivateWitness0,
 
-    //amount
-    tx7_transfer_amt
+    //refund to self as new utxo
+    pv_user3_pk,
+    tx5_transfer_amt.sub(tx7_transfer_amt),
+    tx7_recipientNonce1,
+    newPrivateWitness1
   );
 });
 
