@@ -182,12 +182,14 @@ export class Coin extends SmartContract {
     senderWitness: MerkleWitness32,
     sender: PublicKey,
     senderBal: Field,
-    //senderSig: Signature, //TODO
+    senderSig: Signature,
+
     //public recipient
     emptyRecipientLeaf: Bool,
     recipientWitness: MerkleWitness32,
     recipient: PublicKey,
     recipientBal: Field,
+
     //amount
     amount: Field
   ) {
@@ -202,7 +204,7 @@ export class Coin extends SmartContract {
     senderRootBefore.assertEquals(publicRoot);
 
     //assert sender signature
-    //TODO
+    senderSig.verify(sender, [publicRoot, amount]).assertTrue();
 
     //assert recipient witness
     //leaf node is Field(0) if uninitialized, otherwise, use publicLeaf() to construct a hash of the node
@@ -287,7 +289,7 @@ export class Coin extends SmartContract {
     senderWitness: MerkleWitness32,
     sender: PublicKey,
     senderBal: Field,
-    //senderSig: Signature, //TODO
+    senderSig: Signature,
 
     //private recipient
     recipient: PublicKey,
@@ -317,7 +319,7 @@ export class Coin extends SmartContract {
     this.nextPrivateIndex.assertEquals(newPrivateWitness.calculateIndex());
 
     //assert sender signature
-    //TODO
+    senderSig.verify(sender, [publicRoot, privateRoot, amount]).assertTrue();
 
     //assert sender sufficient balance
     amount.assertLessThanOrEqual(senderBal);

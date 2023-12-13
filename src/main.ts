@@ -16,6 +16,7 @@ import {
   MerkleMap,
   MerkleMapWitness,
   Nullifier,
+  Signature,
 } from 'o1js';
 import axios from 'axios';
 
@@ -199,13 +200,18 @@ const tx3_transfer_amt = Field(7);
 const senderWitness = new MerkleWitness32(publicTree.getWitness(user1_idx));
 const recipientWitness = new MerkleWitness32(publicTree.getWitness(user2_idx));
 
+const sig3 = Signature.create(user1_priv, [
+  publicTree.getRoot(),
+  tx3_transfer_amt,
+]);
+
 const txn3 = await Mina.transaction(senderAccount, () => {
   zkAppInstance.transfer(
     //sender
     senderWitness,
     user1_pk,
     mint_amt, //sender bal
-    //sig, //signature TODO
+    sig3, //signature
 
     //recipient
     Bool(true), //emptyRecipientLeaf
@@ -283,6 +289,11 @@ const senderWitness5 = new MerkleWitness32(publicTree.getWitness(user2_idx));
 let tx5_nonce = Field(Math.floor(Math.random() * 100000)); //TODO not-crypto secure random
 let utxo_index = 0n;
 let utxoWitness = new MerkleWitness32(privateTree.getWitness(utxo_index));
+const sig5 = Signature.create(user2_priv, [
+  publicTree.getRoot(),
+  privateTree.getRoot(),
+  tx5_transfer_amt,
+]);
 
 const txn5 = await Mina.transaction(senderAccount, () => {
   zkAppInstance.transferToPrivate(
@@ -290,7 +301,7 @@ const txn5 = await Mina.transaction(senderAccount, () => {
     senderWitness5,
     user2_pk,
     user2_bal,
-    //sig, //signature TODO
+    sig5, //signature
 
     //recipient
     pv_user3_pk, //recipient
