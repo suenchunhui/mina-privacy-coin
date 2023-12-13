@@ -380,19 +380,31 @@ console.log('private tree root after txn5:', privateTreeRoot5.toString());
 console.log('--- tx7 private to private transfer ---');
 
 const tx7_transfer_amt = Field(3);
-let senderNonce0 = Field(Math.floor(Math.random() * 100000));
-let utxo0 = privateUTXOLeaf(pv_user3_pk, tx7_transfer_amt, senderNonce0);
-let nullifer0 = Nullifier.fromJSON(
-  Nullifier.createTestNullifier([utxo0], pv_user3_priv)
-);
+let utxo0 = privateUTXOLeaf(pv_user3_pk, tx5_transfer_amt, tx5_nonce);
+let _temp = Nullifier.createTestNullifier([utxo0], pv_user3_priv);
+// console.log("json_nullifier ", _temp);
+let nullifer0 = Nullifier.fromJSON(_temp);
+nullifer0.verify([utxo0]);
+const temppk = pv_user3_pk.toFields();
 let utxoIndex = Field(0);
-let calculatedKey = nullifierKey(pv_user3_pk, utxoIndex);
+const calculatedKey = nullifierKey(pv_user3_pk, utxoIndex);
 const nulliferWitness0 = nullifierTree.getWitness(calculatedKey);
-let utxoWitness0 = new MerkleWitness32(privateTree.getWitness(0n));
-let newPrivateWitness0 = new MerkleWitness32(privateTree.getWitness(1n)); //FIXME
-let newPrivateWitness1 = new MerkleWitness32(privateTree.getWitness(2n)); //FIXME
+const sig7 = Signature.create(pv_user3_priv, [
+  privateTree.getRoot(),
+  tx5_transfer_amt,
+  tx5_transfer_amt,
+]);
 
-let tx7_recipientNonce0 = Field(Math.floor(Math.random() * 100000));
+const utxoWitness0 = new MerkleWitness32(privateTree.getWitness(0n));
+const newPrivateWitness0 = new MerkleWitness32(privateTree.getWitness(1n));
+const tx7_recipientNonce0 = Field(Math.floor(Math.random() * 100000));
+const t7_recipient_leaf0 = privateUTXOLeaf(
+  pv_user3_pk,
+  tx7_transfer_amt,
+  tx7_recipientNonce0
+);
+privateTree.setLeaf(1n, t7_recipient_leaf0);
+let newPrivateWitness1 = new MerkleWitness32(privateTree.getWitness(2n));
 let tx7_recipientNonce1 = Field(Math.floor(Math.random() * 100000));
 
 const txn7 = await Mina.transaction(senderAccount, () => {
@@ -404,17 +416,17 @@ const txn7 = await Mina.transaction(senderAccount, () => {
     nullifer0,
     nulliferWitness0,
     utxoWitness0,
-    tx7_transfer_amt,
+    tx5_transfer_amt,
     tx5_nonce,
 
     //utxo1 (null utxo)
     nullifer0,
     nulliferWitness0,
     utxoWitness0,
-    tx7_transfer_amt,
-    senderNonce0,
+    tx5_transfer_amt, //Field(0),   FIXME!!
+    tx5_nonce,
 
-    //senderSig: Signature, //TODO
+    sig7, // Signature
 
     //private recipients
     //send to user4

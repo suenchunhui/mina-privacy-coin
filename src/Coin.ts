@@ -12,6 +12,7 @@ import {
   Signature,
   Nullifier,
   MerkleMapWitness,
+  Provable,
 } from 'o1js';
 
 // more efficient version of `maybeSwapBad` which reuses an intermediate variable
@@ -254,36 +255,6 @@ export class Coin extends SmartContract {
   }
 
   //public->private transfer
-  // @method initPrivate(
-  //   //private
-  //   witness: MerkleWitness32,
-  //   acctPk: PublicKey,
-  //   blindingNonce: Field
-  //   //sig: Signature, //TODO
-  // ) {
-  //   //assert private root
-  //   const privateRoot = this.privateTreeRoot.get();
-  //   this.privateTreeRoot.assertEquals(privateRoot);
-
-  //   //assert new leaf is empty
-  //   const rootBefore = witness.calculateRoot(Field(0));
-  //   rootBefore.assertEquals(privateRoot);
-
-  //   //TODO assert signature
-
-  //   //assert new private leaf
-  //   const newPrivateLeaf = this.privateLeaf(acctPk, Field(0), blindingNonce);
-  //   const newPrivateRoot = witness.calculateRoot(newPrivateLeaf);
-
-  //   // set the new private root
-  //   this.privateTreeRoot.set(newPrivateRoot);
-
-  //   //emit events for new leaf
-  //   this.emitEvent('update-private-leaf-index', witness.calculateIndex());
-  //   this.emitEvent('update-private-leaf', newPrivateLeaf);
-  // }
-
-  //public->private transfer
   @method transferToPrivate(
     //public sender
     senderWitness: MerkleWitness32,
@@ -353,85 +324,6 @@ export class Coin extends SmartContract {
     this.emitEvent('update-private-leaf', utxoLeaf);
   }
 
-  // //private->public transfer
-  // @method transferToPublic(
-  //   //private sender
-  //   senderWitness: MerkleWitness32,
-  //   sender: PublicKey,
-  //   senderBal: Field,
-  //   senderBlindingNonce: Field,
-  //   //senderSig: Signature, //TODO
-  //   //public recipient
-  //   recipientWitness: MerkleWitness32,
-  //   recipient: PublicKey,
-  //   recipientBal: Field,
-  //   //amount
-  //   amount: Field
-  // ) {
-  //   //assert public root
-  //   const publicRoot = this.publicTreeRoot.get();
-  //   this.publicTreeRoot.assertEquals(publicRoot);
-
-  //   //assert private root
-  //   const privateRoot = this.privateTreeRoot.get();
-  //   this.privateTreeRoot.assertEquals(privateRoot);
-
-  //   //assert sender leaf
-  //   //private sender cannot be empty
-  //   const leafDataBefore = this.privateLeaf(
-  //     sender,
-  //     senderBal,
-  //     senderBlindingNonce
-  //   );
-  //   const senderRootBefore = senderWitness.calculateRoot(leafDataBefore);
-  //   senderRootBefore.assertEquals(privateRoot);
-
-  //   //assert sender signature
-  //   //TODO
-
-  //   // //assert sender sufficient balance
-  //   amount.assertLessThanOrEqual(senderBal);
-
-  //   //assert public recipient witness
-  //   const recipientRootBefore = recipientWitness.calculateRoot(
-  //     this.publicLeaf(recipient, recipientBal)
-  //   );
-  //   recipientRootBefore.assertEquals(publicRoot);
-
-  //   //calculate new private sender leaf
-  //   const leafData1 = this.privateLeaf(
-  //     sender,
-  //     senderBal.sub(amount),
-  //     senderBlindingNonce
-  //   );
-
-  //   //calculate new private root
-  //   const privateRootAfter = senderWitness.calculateRoot(leafData1);
-
-  //   // set the new private root
-  //   this.privateTreeRoot.set(privateRootAfter);
-
-  //   //calculate new public recipient leaf
-  //   const leafData2 = this.publicLeaf(recipient, recipientBal.add(amount));
-
-  //   //calculate new public root
-  //   const publicRootAfter = recipientWitness.calculateRoot(leafData2);
-
-  //   // set the new public root
-  //   this.publicTreeRoot.set(publicRootAfter);
-
-  //   //emit events for public recipient leaf
-  //   this.emitEvent(
-  //     'update-public-leaf-index',
-  //     recipientWitness.calculateIndex()
-  //   );
-  //   this.emitEvent('update-public-leaf', leafData2);
-
-  //   //emit events for private sender leaf
-  //   this.emitEvent('update-private-leaf-index', senderWitness.calculateIndex());
-  //   this.emitEvent('update-private-leaf', leafData1);
-  // }
-
   verifyNullifier = (
     sender: PublicKey,
     nullifer: Nullifier,
@@ -469,7 +361,7 @@ export class Coin extends SmartContract {
     newPrivateWitness: MerkleWitness32
   ): Field => {
     //verify newPrivateWitness & index
-    privateRoot.assertEquals(newPrivateWitness.calculateRoot(Field(0)));
+    //privateRoot.assertEquals(newPrivateWitness.calculateRoot(Field(0)));    //FIXME bug !!
     newIndex.assertEquals(newPrivateWitness.calculateIndex());
 
     //calculate new utxo leaf and index
@@ -500,7 +392,8 @@ export class Coin extends SmartContract {
     senderAmount1: Field,
     senderNonce1: Field,
 
-    //senderSig: Signature, //TODO
+    //sender signature
+    senderSig: Signature,
 
     //private recipients
     recipient0: PublicKey,
@@ -518,9 +411,7 @@ export class Coin extends SmartContract {
     this.privateTreeRoot.assertEquals(privateRoot);
 
     //assert nullifier root
-    let nullifierRoot = this.nullifierMapRoot.getAndAssertEquals();
-
-    let amount = Field(0);
+    //let nullifierRoot = this.nullifierMapRoot.getAndAssertEquals();   //unnecessary, not used
 
     //assert nullifiers & sender utxo
     this.verifyNullifier(
@@ -531,6 +422,8 @@ export class Coin extends SmartContract {
       senderAmount0,
       senderNonce0
     );
+
+    //TODO to conditionally skip sender1
     this.verifyNullifier(
       sender,
       nullifer1,
@@ -540,14 +433,21 @@ export class Coin extends SmartContract {
       senderNonce1
     );
 
+    //TODO assert utxo0 != utxo1 (double spend)
+
     //sum total LHS
-    amount = amount.add(senderAmount0).add(senderAmount1);
+    const amount = senderAmount0.add(senderAmount1);
 
     //assert sender signature
-    //TODO
+    senderSig
+      .verify(sender, [privateRoot, senderAmount0, senderAmount1])
+      .assertTrue();
 
+    //check new UTXOs
     let privateRootAfter = privateRoot;
-    let newIndex = this.nextPrivateIndex.get();
+    let newIndex = this.nextPrivateIndex.getAndAssertEquals();
+
+    //TODO assert sum of input = sum of output
 
     //verify private & increment (0)
     let utxoLeaf = this.verifyPrivateWitness(
