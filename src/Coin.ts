@@ -483,4 +483,154 @@ export class Coin extends SmartContract {
     this.emitEvent('update-private-leaf-index', newIndex);
     this.emitEvent('update-private-leaf', utxoLeaf);
   }
+
+  //private->public transfer
+  @method transferPrivateToPublic(
+    //private sender
+    sender: PublicKey,
+
+    //utxo tuples (nullifier, amount, nonce) to be nullifier
+    nullifer0: Nullifier,
+    nulliferWitness0: MerkleMapWitness,
+    utxoWitness0: MerkleWitness32,
+    senderAmount0: Field,
+    senderNonce0: Field,
+
+    nullifer1: Nullifier,
+    nulliferWitness1: MerkleMapWitness,
+    utxoWitness1: MerkleWitness32,
+    senderAmount1: Field,
+    senderNonce1: Field,
+
+    //sender signature
+    senderSig: Signature,
+
+    //private recipient
+    recipient0: PublicKey,
+    recipientAmount0: Field,
+    recipientNonce0: Field,
+    newPrivateWitness0: MerkleWitness32,
+
+    //public recipient
+    emptyRecipientLeaf: Bool,
+    recipientWitness: MerkleWitness32,
+    recipient: PublicKey,
+    recipientBal: Field,
+    publicAmount: Field
+  ) {
+    //assert private root
+    const privateRoot = this.privateTreeRoot.get();
+    this.privateTreeRoot.assertEquals(privateRoot);
+
+    //assert nullifier root
+    //let nullifierRoot = this.nullifierMapRoot.getAndAssertEquals();   //unnecessary, not used
+
+    //assert nullifiers & sender utxo
+    this.verifyNullifier(
+      sender,
+      nullifer0,
+      nulliferWitness0,
+      utxoWitness0,
+      senderAmount0,
+      senderNonce0
+    );
+
+    //TODO to conditionally skip sender1
+    this.verifyNullifier(
+      sender,
+      nullifer1,
+      nulliferWitness1,
+      utxoWitness1,
+      senderAmount1,
+      senderNonce1
+    );
+
+    //TODO assert utxo0 != utxo1 (double spend)
+
+    //sum total LHS
+    const amount = senderAmount0.add(senderAmount1);
+
+    //assert sender signature
+    senderSig
+      .verify(sender, [privateRoot, senderAmount0, senderAmount1])
+      .assertTrue();
+
+    //check new UTXOs
+    let privateRootAfter = privateRoot;
+    let newIndex = this.nextPrivateIndex.getAndAssertEquals();
+
+    //TODO assert sum of input = sum of output
+
+    //verify private & increment (0)
+    let utxoLeaf = this.verifyPrivateWitness(
+      newIndex,
+      privateRootAfter,
+      recipient0,
+      recipientAmount0,
+      recipientNonce0,
+      newPrivateWitness0
+    );
+    privateRootAfter = newPrivateWitness0.calculateRoot(utxoLeaf);
+
+    //emit events for recipient leaf1 (append to utxo tree)
+    this.emitEvent('update-private-leaf-index', newIndex);
+    this.emitEvent('update-private-leaf', utxoLeaf);
+
+    // newIndex = newIndex.add(1);
+
+    // //verify private & increment (1)
+    // utxoLeaf = this.verifyPrivateWitness(
+    //   newIndex,
+    //   privateRootAfter,
+    //   recipient1,
+    //   recipientAmount1,
+    //   recipientNonce1,
+    //   newPrivateWitness1
+    // );
+    // privateRootAfter = newPrivateWitness0.calculateRoot(utxoLeaf);
+    // newIndex = newIndex.add(1);
+
+    // // set the new private root and index
+    // this.privateTreeRoot.set(privateRootAfter);
+    // this.nextPrivateIndex.set(newIndex);
+
+    // //emit events for recipient leaf1 (append to utxo tree)
+    // this.emitEvent('update-private-leaf-index', newIndex);
+    // this.emitEvent('update-private-leaf', utxoLeaf);
+
+    //assert public root
+    const publicRoot = this.publicTreeRoot.get();
+    this.publicTreeRoot.assertEquals(publicRoot);
+
+    //assert recipient witness
+    //leaf node is Field(0) if uninitialized, otherwise, use publicLeaf() to construct a hash of the node
+    const leafDataBefore = Circuit.if(
+      emptyRecipientLeaf,
+      Field(0),
+      this.publicLeaf(recipient, recipientBal)
+    );
+    const recipientRootBefore = recipientWitness.calculateRoot(leafDataBefore);
+    recipientRootBefore.assertEquals(publicRoot);
+
+    //calculate new recipient leaf
+    const newRecipientBal = Circuit.if(
+      emptyRecipientLeaf,
+      publicAmount,
+      recipientBal.add(publicAmount)
+    );
+    const leafData2 = this.publicLeaf(recipient, newRecipientBal);
+
+    //calculate new root
+    const rootAfter = recipientWitness.calculateRoot(leafData2);
+
+    // set the new root
+    this.publicTreeRoot.set(rootAfter);
+
+    //emit events for recipient leaf
+    this.emitEvent(
+      'update-public-leaf-index',
+      recipientWitness.calculateIndex()
+    );
+    this.emitEvent('update-public-leaf', leafData2);
+  }
 }
