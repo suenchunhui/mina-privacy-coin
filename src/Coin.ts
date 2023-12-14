@@ -91,6 +91,7 @@ export class Coin extends SmartContract {
     'update-public-leaf-index': Field,
     'update-private-leaf': Field,
     'update-private-leaf-index': Field,
+    'update-nullifier-leaf-index': Field,
   };
 
   @method initState(
@@ -108,30 +109,21 @@ export class Coin extends SmartContract {
     super.init();
   }
 
-  //internal function
+  //internal functions ---
+
+  //public node (account & balance)
   publicLeaf(recipient: PublicKey, amount: Field): Field {
     const pkfields = recipient.toFields();
     return Poseidon.hash([pkfields[0], pkfields[1], amount]);
   }
 
-  // //private node (without knowing balance)
-  // blindPrivateLeaf(
-  //   recipient: PublicKey,
-  //   blindedAmount: Field,
-  //   blindingNonceHash: Field
-  // ): Field {
-  //   const pkfields = recipient.toFields();
-  //   const left = Poseidon.hash([pkfields[0], pkfields[1], blindedAmount]);
-  //   return Poseidon.hash([left, blindingNonceHash]);
-  // }
-
-  //private node (know balance)
+  //private node (blind utxo)
   privateUTXOLeaf(recipient: PublicKey, amount: Field, nonce: Field): Field {
     const pkfields = recipient.toFields();
     return Poseidon.hash([pkfields[0], pkfields[1], amount, nonce]);
   }
 
-  //nullifier key
+  //nullifier key (nullifier map for utxo)
   nullifierKey(recipient: PublicKey, utxoIndex: Field): Field {
     const pkfields = recipient.toFields();
     return Poseidon.hash([pkfields[0], pkfields[1], utxoIndex]);
@@ -349,7 +341,12 @@ export class Coin extends SmartContract {
     // verify utxo leaf
     this.privateTreeRoot.assertEquals(utxoWitness.calculateRoot(utxoLeaf));
 
-    //TODO update nullfier map!!
+    //update nullfier map by setting leaf to Field(1)
+    let [newNullRoot] = nulliferWitness.computeRootAndKey(Field(1));
+    this.nullifierMapRoot.set(newNullRoot);
+
+    //emit nullifier events
+    this.emitEvent('update-nullifier-leaf-index', calculatedKey);
   };
 
   verifyPrivateWitness = (
@@ -361,7 +358,7 @@ export class Coin extends SmartContract {
     newPrivateWitness: MerkleWitness32
   ): Field => {
     //verify newPrivateWitness & index
-    //privateRoot.assertEquals(newPrivateWitness.calculateRoot(Field(0)));    //FIXME bug !!
+    privateRoot.assertEquals(newPrivateWitness.calculateRoot(Field(0)));
     newIndex.assertEquals(newPrivateWitness.calculateIndex());
 
     //calculate new utxo leaf and index
@@ -459,6 +456,11 @@ export class Coin extends SmartContract {
       newPrivateWitness0
     );
     privateRootAfter = newPrivateWitness0.calculateRoot(utxoLeaf);
+
+    //emit events for recipient leaf1 (append to utxo tree)
+    this.emitEvent('update-private-leaf-index', newIndex);
+    this.emitEvent('update-private-leaf', utxoLeaf);
+
     newIndex = newIndex.add(1);
 
     //verify private & increment (1)
@@ -473,10 +475,12 @@ export class Coin extends SmartContract {
     privateRootAfter = newPrivateWitness0.calculateRoot(utxoLeaf);
     newIndex = newIndex.add(1);
 
-    //TODO emit events
-
     // set the new private root and index
     this.privateTreeRoot.set(privateRootAfter);
     this.nextPrivateIndex.set(newIndex);
+
+    //emit events for recipient leaf1 (append to utxo tree)
+    this.emitEvent('update-private-leaf-index', newIndex);
+    this.emitEvent('update-private-leaf', utxoLeaf);
   }
 }

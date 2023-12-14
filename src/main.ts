@@ -399,7 +399,7 @@ const utxoWitness0 = new MerkleWitness32(privateTree.getWitness(0n));
 const newPrivateWitness0 = new MerkleWitness32(privateTree.getWitness(1n));
 const tx7_recipientNonce0 = Field(Math.floor(Math.random() * 100000));
 const t7_recipient_leaf0 = privateUTXOLeaf(
-  pv_user3_pk,
+  pv_user4_pk,
   tx7_transfer_amt,
   tx7_recipientNonce0
 );
