@@ -342,39 +342,6 @@ const privateTreeRoot5 = zkAppInstance.privateTreeRoot.get();
 console.log('private tree root (offline): ', privateTree.getRoot().toString());
 console.log('private tree root after txn5:', privateTreeRoot5.toString());
 
-// ----------------------- tx6 init private -----------------------------
-
-// console.log('--- tx6 init private (pv_user4) ---');
-
-// const prv_user4_idx = BigInt(12);
-// const pv_user4_blindNonce = Field(123123); //TODO, to use random
-// let pv_user4_bal = Field(0);
-// let pv_user4_blindBal = Field(pv_user4_blindNonce);
-// const pv_user4_blindHash = Poseidon.hash([pv_user4_blindNonce]);
-
-// const witness6 = new MerkleWitness32(privateTree.getWitness(prv_user4_idx));
-
-// const txn6 = await Mina.transaction(senderAccount, () => {
-//   zkAppInstance.initPrivate(witness6, pv_user4_pk, pv_user4_blindNonce);
-// });
-
-// await txn6.prove();
-// await txn6.sign([senderKey]).send();
-
-// await merkleListener.fetchEvents();
-
-// //update off-chain tree
-// const t6_update_data_offline = privateLeaf(
-//   pv_user4_pk,
-//   Field(0),
-//   pv_user4_blindNonce
-// );
-// privateTree.setLeaf(prv_user4_idx, t6_update_data_offline);
-
-// const privateTreeRoot6 = zkAppInstance.privateTreeRoot.get();
-// console.log('private tree root (offline): ', privateTree.getRoot().toString());
-// console.log('private tree root after txn6:', privateTreeRoot6.toString());
-
 // ----------------------- tx7 private->private transfer -----------------------------
 
 console.log('--- tx7 private to private transfer ---');
@@ -446,60 +413,34 @@ const txn7 = await Mina.transaction(senderAccount, () => {
 await txn7.prove();
 await txn7.sign([senderKey]).send();
 
-await merkleListener.fetchEvents();
-
-//update off-chain tree
-const t7_sender_update_data_offline = privateLeaf(
+//Update private tree
+const t7_recipient_update1 = privateUTXOLeaf(
   pv_user3_pk,
-  pv_user3_bal.sub(tx7_transfer_amt),
-  pv_user3_blindNonce
+  tx5_transfer_amt.sub(tx7_transfer_amt),
+  tx7_recipientNonce1
 );
-const t7_recipient_update_data_offline = privateLeaf(
-  pv_user4_pk,
-  tx7_transfer_amt,
-  pv_user4_blindNonce
-);
-privateTree.setLeaf(prv_user3_idx, t7_sender_update_data_offline);
-privateTree.setLeaf(prv_user4_idx, t7_recipient_update_data_offline);
+privateTree.setLeaf(2n, t7_recipient_update1);
 
-pv_user3_bal = pv_user3_bal.sub(tx7_transfer_amt);
-pv_user4_bal = tx7_transfer_amt;
-
-const privateTreeRoot7 = zkAppInstance.privateTreeRoot.get();
 console.log('private tree root (offline): ', privateTree.getRoot().toString());
-console.log('private tree root after txn7:', privateTreeRoot7.toString());
-
-// ----------------------- tx8 private->public transfer -----------------------------
-
-console.log('--- tx8 private to public transfer ---');
-
-const tx8_transfer_amt = Field(2);
-const senderWitness8 = new MerkleWitness32(
-  privateTree.getWitness(prv_user4_idx)
+console.log(
+  'private tree root after txn7:',
+  zkAppInstance.privateTreeRoot.get().toString()
 );
-const recipientWitness8 = new MerkleWitness32(publicTree.getWitness(user1_idx));
 
-const txn8 = await Mina.transaction(senderAccount, () => {
-  zkAppInstance.transferToPublic(
-    //sender
-    senderWitness8,
-    pv_user4_pk,
-    pv_user4_bal,
-    pv_user4_blindNonce,
-    //sig, //signature TODO
+//Update private tree
+let nullifierKey0 = nullifierKey(pv_user3_pk, Field(0));
+nullifierTree.set(nullifierKey0, Field(1));
 
-    //recipient
-    recipientWitness8,
-    user1_pk,
-    user1_bal,
+console.log(
+  'nullifier map root (offline): ',
+  nullifierTree.getRoot().toString()
+);
+console.log(
+  'nullifier map root after txn7:',
+  zkAppInstance.nullifierMapRoot.get().toString()
+);
 
-    //amount
-    tx8_transfer_amt
-  );
-});
-
-await txn8.prove();
-await txn8.sign([senderKey]).send();
+//TODO check node js listener is correct
 
 await merkleListener.fetchEvents();
 

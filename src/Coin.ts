@@ -472,8 +472,7 @@ export class Coin extends SmartContract {
       recipientNonce1,
       newPrivateWitness1
     );
-    privateRootAfter = newPrivateWitness0.calculateRoot(utxoLeaf);
-    newIndex = newIndex.add(1);
+    privateRootAfter = newPrivateWitness1.calculateRoot(utxoLeaf);
 
     // set the new private root and index
     this.privateTreeRoot.set(privateRootAfter);
