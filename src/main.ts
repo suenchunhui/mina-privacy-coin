@@ -444,29 +444,73 @@ console.log(
 
 await merkleListener.fetchEvents();
 
-//update off-chain tree
-const t8_sender_update_data_offline = privateLeaf(
-  pv_user4_pk,
-  pv_user4_bal.sub(tx8_transfer_amt),
-  pv_user4_blindNonce
+// ----------------------- tx8 private->public transfer -----------------------------
+
+console.log('--- tx8 private to public transfer ---');
+
+const tx8_transfer_amt = Field(1);
+let utxo8 = privateUTXOLeaf(pv_user4_pk, tx7_transfer_amt, tx7_recipientNonce0);
+let nullifer8_0 = Nullifier.fromJSON(
+  Nullifier.createTestNullifier([utxo8], pv_user4_priv)
 );
-const t8_recipient_update_data_offline = publicLeaf(
-  user1_pk,
-  user1_bal.add(tx8_transfer_amt)
+const calculatedKey2 = nullifierKey(pv_user4_pk, Field(1));
+const nulliferWitness8_0 = nullifierTree.getWitness(calculatedKey2);
+const utxoWitness8_0 = new MerkleWitness32(privateTree.getWitness(1n));
+const sig8 = Signature.create(pv_user4_priv, [
+  privateTree.getRoot(),
+  tx7_transfer_amt,
+  tx7_transfer_amt,
+]);
+
+const tx8_recipientNonce0 = Field(Math.floor(Math.random() * 100000));
+let newPrivateWitness8_0 = new MerkleWitness32(privateTree.getWitness(3n)); //new empty slot
+
+//public recipient
+const tx8_recipientWitness = new MerkleWitness32(
+  publicTree.getWitness(user2_idx)
 );
-privateTree.setLeaf(prv_user4_idx, t8_sender_update_data_offline);
-publicTree.setLeaf(user1_idx, t8_recipient_update_data_offline);
 
-pv_user4_bal = pv_user4_bal.sub(tx8_transfer_amt);
-user1_bal = user1_bal.add(tx8_transfer_amt);
+const txn8 = await Mina.transaction(senderAccount, () => {
+  zkAppInstance.transferPrivateToPublic(
+    //sender
+    pv_user4_pk,
 
-const privateTreeRoot8 = zkAppInstance.privateTreeRoot.get();
-console.log('private tree root (offline): ', privateTree.getRoot().toString());
-console.log('private tree root after txn8:', privateTreeRoot8.toString());
+    //utxo0 to spend
+    nullifer8_0,
+    nulliferWitness8_0,
+    utxoWitness8_0,
+    tx7_transfer_amt,
+    tx7_recipientNonce0,
 
-const publicTreeRoot8 = zkAppInstance.publicTreeRoot.get();
-console.log('public tree root (offline): ', publicTree.getRoot().toString());
-console.log('public tree root after txn8:', publicTreeRoot8.toString());
+    //utxo1 (null utxo)
+    nullifer8_0,
+    nulliferWitness8_0,
+    utxoWitness8_0,
+    tx7_transfer_amt, //Field(0),   FIXME!!
+    tx7_recipientNonce0,
+
+    sig8, // Signature
+
+    //private recipients
+    //send to user4
+    pv_user4_pk,
+    tx7_transfer_amt.sub(tx8_transfer_amt),
+    tx8_recipientNonce0,
+    newPrivateWitness8_0,
+
+    //recipient
+    Bool(false), //emptyRecipientLeaf
+    tx8_recipientWitness,
+    user2_pk,
+    user2_bal, //recipientBal
+    tx8_transfer_amt //public amount
+  );
+});
+
+await txn7.prove();
+await txn7.sign([senderKey]).send();
+
+await merkleListener.fetchEvents();
 
 // ----------------------------------------------------
 console.log('--- Shutting down ---');
