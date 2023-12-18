@@ -474,13 +474,15 @@ export class Coin extends SmartContract {
     );
     privateRootAfter = newPrivateWitness1.calculateRoot(utxoLeaf);
 
-    // set the new private root and index
+    // set the new private root
     this.privateTreeRoot.set(privateRootAfter);
-    this.nextPrivateIndex.set(newIndex);
 
     //emit events for recipient leaf1 (append to utxo tree)
     this.emitEvent('update-private-leaf-index', newIndex);
     this.emitEvent('update-private-leaf', utxoLeaf);
+
+    //set new index
+    this.nextPrivateIndex.set(newIndex.add(1));
   }
 
   //private->public transfer
@@ -517,7 +519,7 @@ export class Coin extends SmartContract {
     recipientBal: Field,
     publicAmount: Field
   ) {
-    //assert private root
+    // //assert private root
     const privateRoot = this.privateTreeRoot.get();
     this.privateTreeRoot.assertEquals(privateRoot);
 
@@ -575,27 +577,15 @@ export class Coin extends SmartContract {
     this.emitEvent('update-private-leaf-index', newIndex);
     this.emitEvent('update-private-leaf', utxoLeaf);
 
-    // newIndex = newIndex.add(1);
+    // set the new private root
+    this.privateTreeRoot.set(privateRootAfter);
 
-    // //verify private & increment (1)
-    // utxoLeaf = this.verifyPrivateWitness(
-    //   newIndex,
-    //   privateRootAfter,
-    //   recipient1,
-    //   recipientAmount1,
-    //   recipientNonce1,
-    //   newPrivateWitness1
-    // );
-    // privateRootAfter = newPrivateWitness0.calculateRoot(utxoLeaf);
-    // newIndex = newIndex.add(1);
+    //emit events for recipient leaf1 (append to utxo tree)
+    this.emitEvent('update-private-leaf-index', newIndex);
+    this.emitEvent('update-private-leaf', utxoLeaf);
 
-    // // set the new private root and index
-    // this.privateTreeRoot.set(privateRootAfter);
-    // this.nextPrivateIndex.set(newIndex);
-
-    // //emit events for recipient leaf1 (append to utxo tree)
-    // this.emitEvent('update-private-leaf-index', newIndex);
-    // this.emitEvent('update-private-leaf', utxoLeaf);
+    //set new index
+    this.nextPrivateIndex.set(newIndex.add(1));
 
     //assert public root
     const publicRoot = this.publicTreeRoot.get();

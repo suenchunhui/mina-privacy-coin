@@ -427,7 +427,7 @@ console.log(
   zkAppInstance.privateTreeRoot.get().toString()
 );
 
-//Update private tree
+//Update nullifier tree
 let nullifierKey0 = nullifierKey(pv_user3_pk, Field(0));
 nullifierTree.set(nullifierKey0, Field(1));
 
@@ -507,10 +507,48 @@ const txn8 = await Mina.transaction(senderAccount, () => {
   );
 });
 
-await txn7.prove();
-await txn7.sign([senderKey]).send();
+await txn8.prove();
+await txn8.sign([senderKey]).send();
 
 await merkleListener.fetchEvents();
+
+//update and check private tree
+const t8_recipient_update1 = privateUTXOLeaf(
+  pv_user4_pk,
+  tx7_transfer_amt.sub(tx8_transfer_amt),
+  tx8_recipientNonce0
+);
+privateTree.setLeaf(3n, t8_recipient_update1);
+
+console.log('private tree root (offline): ', privateTree.getRoot().toString());
+console.log(
+  'private tree root after txn8:',
+  zkAppInstance.privateTreeRoot.get().toString()
+);
+
+//Update & test nullifier tree
+nullifierTree.set(calculatedKey2, Field(1));
+
+console.log(
+  'nullifier map root (offline): ',
+  nullifierTree.getRoot().toString()
+);
+console.log(
+  'nullifier map root after txn8:',
+  zkAppInstance.nullifierMapRoot.get().toString()
+);
+
+//update & test public tree
+user2_bal = user2_bal.add(tx8_transfer_amt);
+const t8_recipient_leaf = publicLeaf(user2_pk, user2_bal);
+publicTree.setLeaf(user2_idx, t8_recipient_leaf);
+console.log('public tree root (offline): ', publicTree.getRoot().toString());
+console.log(
+  'public tree root after txn8:',
+  zkAppInstance.publicTreeRoot.get().toString()
+);
+
+//TODO check index
 
 // ----------------------------------------------------
 console.log('--- Shutting down ---');
