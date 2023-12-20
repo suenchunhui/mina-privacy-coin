@@ -14,7 +14,6 @@ import {
   Poseidon,
   Bool,
   MerkleMap,
-  MerkleMapWitness,
   Nullifier,
   Signature,
 } from 'o1js';
@@ -56,9 +55,12 @@ function privateUTXOLeaf(
   return Poseidon.hash([pkfields[0], pkfields[1], amount, nonce]);
 }
 
-function nullifierKey(recipient: PublicKey, utxoIndex: Field): Field {
-  const pkfields = recipient.toFields();
-  return Poseidon.hash([pkfields[0], pkfields[1], utxoIndex]);
+function nullifierKey(nullifier: Nullifier, utxoIndex: Field): Field {
+  return Poseidon.hash([
+    nullifier.public.nullifier.x,
+    nullifier.public.nullifier.y,
+    utxoIndex,
+  ]);
 }
 
 //tree defn
@@ -354,7 +356,7 @@ let nullifer0 = Nullifier.fromJSON(_temp);
 nullifer0.verify([utxo0]);
 const temppk = pv_user3_pk.toFields();
 let utxoIndex = Field(0);
-const calculatedKey = nullifierKey(pv_user3_pk, utxoIndex);
+const calculatedKey = nullifierKey(nullifer0, utxoIndex);
 const nulliferWitness0 = nullifierTree.getWitness(calculatedKey);
 const sig7 = Signature.create(pv_user3_priv, [
   privateTree.getRoot(),
@@ -428,8 +430,7 @@ console.log(
 );
 
 //Update nullifier tree
-let nullifierKey0 = nullifierKey(pv_user3_pk, Field(0));
-nullifierTree.set(nullifierKey0, Field(1));
+nullifierTree.set(calculatedKey, Field(1));
 
 console.log(
   'nullifier map root (offline): ',
@@ -453,7 +454,7 @@ let utxo8 = privateUTXOLeaf(pv_user4_pk, tx7_transfer_amt, tx7_recipientNonce0);
 let nullifer8_0 = Nullifier.fromJSON(
   Nullifier.createTestNullifier([utxo8], pv_user4_priv)
 );
-const calculatedKey2 = nullifierKey(pv_user4_pk, Field(1));
+const calculatedKey2 = nullifierKey(nullifer8_0, Field(1));
 const nulliferWitness8_0 = nullifierTree.getWitness(calculatedKey2);
 const utxoWitness8_0 = new MerkleWitness32(privateTree.getWitness(1n));
 const sig8 = Signature.create(pv_user4_priv, [

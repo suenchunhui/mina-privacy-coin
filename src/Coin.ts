@@ -124,9 +124,12 @@ export class Coin extends SmartContract {
   }
 
   //nullifier key (nullifier map for utxo)
-  nullifierKey(recipient: PublicKey, utxoIndex: Field): Field {
-    const pkfields = recipient.toFields();
-    return Poseidon.hash([pkfields[0], pkfields[1], utxoIndex]);
+  nullifierKey(nullifier: Nullifier, utxoIndex: Field): Field {
+    return Poseidon.hash([
+      nullifier.public.nullifier.x,
+      nullifier.public.nullifier.y,
+      utxoIndex,
+    ]);
   }
 
   //payment for minting
@@ -324,13 +327,13 @@ export class Coin extends SmartContract {
     senderAmount: Field,
     senderNonce: Field
   ) => {
-    // verify the nullifier leaf at `utxoIndex` location is empty
+    // verify the nullifier leaf at `utxoIndex` location is empty(zero)
     let utxoIndex = utxoWitness.calculateIndex();
     let [impliedNullRoot, impliedNullIndex] = nulliferWitness.computeRootAndKey(
       Field(0)
     );
     this.nullifierMapRoot.assertEquals(impliedNullRoot);
-    let calculatedKey = this.nullifierKey(sender, utxoIndex);
+    let calculatedKey = this.nullifierKey(nullifer, utxoIndex);
     impliedNullIndex.assertEquals(calculatedKey);
 
     // verify nullifier & PK
@@ -461,6 +464,7 @@ export class Coin extends SmartContract {
     this.emitEvent('update-private-leaf-index', newIndex);
     this.emitEvent('update-private-leaf', utxoLeaf);
 
+    //increment index
     newIndex = newIndex.add(1);
 
     //verify private & increment (1)
