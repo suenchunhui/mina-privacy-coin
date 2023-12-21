@@ -349,31 +349,31 @@ console.log('private tree root after txn5:', privateTreeRoot5.toString());
 console.log('--- tx7 private to private transfer ---');
 
 const tx7_transfer_amt = Field(3);
-let utxo0 = privateUTXOLeaf(pv_user3_pk, tx5_transfer_amt, tx5_nonce);
-let _temp = Nullifier.createTestNullifier([utxo0], pv_user3_priv);
-// console.log("json_nullifier ", _temp);
-let nullifer0 = Nullifier.fromJSON(_temp);
-nullifer0.verify([utxo0]);
-const temppk = pv_user3_pk.toFields();
-let utxoIndex = Field(0);
-const calculatedKey = nullifierKey(nullifer0, utxoIndex);
-const nulliferWitness0 = nullifierTree.getWitness(calculatedKey);
-const sig7 = Signature.create(pv_user3_priv, [
+const tx7_utxo0 = privateUTXOLeaf(pv_user3_pk, tx5_transfer_amt, tx5_nonce);
+const tx7_nullifer0 = Nullifier.fromJSON(
+  Nullifier.createTestNullifier([tx7_utxo0], pv_user3_priv)
+);
+
+const tx7_utxoIndex = Field(0);
+const tx7_calculatedKey = nullifierKey(tx7_nullifer0, tx7_utxoIndex);
+const tx7_nulliferWitness0 = nullifierTree.getWitness(tx7_calculatedKey);
+
+const tx7_sig = Signature.create(pv_user3_priv, [
   privateTree.getRoot(),
   tx5_transfer_amt,
   tx5_transfer_amt,
 ]);
 
 const utxoWitness0 = new MerkleWitness32(privateTree.getWitness(0n));
-const newPrivateWitness0 = new MerkleWitness32(privateTree.getWitness(1n));
+const tx7_newPrivateWitness0 = new MerkleWitness32(privateTree.getWitness(1n));
 const tx7_recipientNonce0 = Field(Math.floor(Math.random() * 100000));
-const t7_recipient_leaf0 = privateUTXOLeaf(
+const tx7_recipient_leaf0 = privateUTXOLeaf(
   pv_user4_pk,
   tx7_transfer_amt,
   tx7_recipientNonce0
 );
-privateTree.setLeaf(1n, t7_recipient_leaf0);
-let newPrivateWitness1 = new MerkleWitness32(privateTree.getWitness(2n));
+privateTree.setLeaf(1n, tx7_recipient_leaf0);
+let tx7_newPrivateWitness1 = new MerkleWitness32(privateTree.getWitness(2n));
 let tx7_recipientNonce1 = Field(Math.floor(Math.random() * 100000));
 
 const txn7 = await Mina.transaction(senderAccount, () => {
@@ -382,33 +382,33 @@ const txn7 = await Mina.transaction(senderAccount, () => {
     pv_user3_pk,
 
     //utxo0 to spend
-    nullifer0,
-    nulliferWitness0,
+    tx7_nullifer0,
+    tx7_nulliferWitness0,
     utxoWitness0,
     tx5_transfer_amt,
     tx5_nonce,
 
-    //utxo1 (null utxo)
-    nullifer0,
-    nulliferWitness0,
+    //utxo1 (repeat)
+    tx7_nullifer0,
+    tx7_nulliferWitness0,
     utxoWitness0,
-    tx5_transfer_amt, //Field(0),   FIXME!!
+    tx5_transfer_amt,
     tx5_nonce,
 
-    sig7, // Signature
+    tx7_sig, // Signature
 
     //private recipients
     //send to user4
     pv_user4_pk,
     tx7_transfer_amt,
     tx7_recipientNonce0,
-    newPrivateWitness0,
+    tx7_newPrivateWitness0,
 
     //refund to self as new utxo
     pv_user3_pk,
     tx5_transfer_amt.sub(tx7_transfer_amt),
     tx7_recipientNonce1,
-    newPrivateWitness1
+    tx7_newPrivateWitness1
   );
 });
 
@@ -416,12 +416,12 @@ await txn7.prove();
 await txn7.sign([senderKey]).send();
 
 //Update private tree
-const t7_recipient_update1 = privateUTXOLeaf(
+const tx7_recipient_update1 = privateUTXOLeaf(
   pv_user3_pk,
   tx5_transfer_amt.sub(tx7_transfer_amt),
   tx7_recipientNonce1
 );
-privateTree.setLeaf(2n, t7_recipient_update1);
+privateTree.setLeaf(2n, tx7_recipient_update1);
 
 console.log('private tree root (offline): ', privateTree.getRoot().toString());
 console.log(
@@ -430,7 +430,7 @@ console.log(
 );
 
 //Update nullifier tree
-nullifierTree.set(calculatedKey, Field(1));
+nullifierTree.set(tx7_calculatedKey, Field(1));
 
 console.log(
   'nullifier map root (offline): ',
@@ -450,14 +450,18 @@ await merkleListener.fetchEvents();
 console.log('--- tx8 private to public transfer ---');
 
 const tx8_transfer_amt = Field(1);
-let utxo8 = privateUTXOLeaf(pv_user4_pk, tx7_transfer_amt, tx7_recipientNonce0);
-let nullifer8_0 = Nullifier.fromJSON(
-  Nullifier.createTestNullifier([utxo8], pv_user4_priv)
+const tx8_utxo0 = privateUTXOLeaf(
+  pv_user4_pk,
+  tx7_transfer_amt,
+  tx7_recipientNonce0
 );
-const calculatedKey2 = nullifierKey(nullifer8_0, Field(1));
-const nulliferWitness8_0 = nullifierTree.getWitness(calculatedKey2);
-const utxoWitness8_0 = new MerkleWitness32(privateTree.getWitness(1n));
-const sig8 = Signature.create(pv_user4_priv, [
+const tx8_nullifer = Nullifier.fromJSON(
+  Nullifier.createTestNullifier([tx8_utxo0], pv_user4_priv)
+);
+const tx8_calculatedKey = nullifierKey(tx8_nullifer, Field(1));
+const tx8_nulliferWitness = nullifierTree.getWitness(tx8_calculatedKey);
+const tx8_utxoWitness = new MerkleWitness32(privateTree.getWitness(1n));
+const tx8_sig = Signature.create(pv_user4_priv, [
   privateTree.getRoot(),
   tx7_transfer_amt,
   tx7_transfer_amt,
@@ -477,20 +481,20 @@ const txn8 = await Mina.transaction(senderAccount, () => {
     pv_user4_pk,
 
     //utxo0 to spend
-    nullifer8_0,
-    nulliferWitness8_0,
-    utxoWitness8_0,
+    tx8_nullifer,
+    tx8_nulliferWitness,
+    tx8_utxoWitness,
     tx7_transfer_amt,
     tx7_recipientNonce0,
 
-    //utxo1 (null utxo)
-    nullifer8_0,
-    nulliferWitness8_0,
-    utxoWitness8_0,
-    tx7_transfer_amt, //Field(0),   FIXME!!
+    //utxo1 (repeat)
+    tx8_nullifer,
+    tx8_nulliferWitness,
+    tx8_utxoWitness,
+    tx7_transfer_amt,
     tx7_recipientNonce0,
 
-    sig8, // Signature
+    tx8_sig, // Signature
 
     //private recipients
     //send to user4
@@ -514,12 +518,12 @@ await txn8.sign([senderKey]).send();
 await merkleListener.fetchEvents();
 
 //update and check private tree
-const t8_recipient_update1 = privateUTXOLeaf(
+const tx8_recipient_update1 = privateUTXOLeaf(
   pv_user4_pk,
   tx7_transfer_amt.sub(tx8_transfer_amt),
   tx8_recipientNonce0
 );
-privateTree.setLeaf(3n, t8_recipient_update1);
+privateTree.setLeaf(3n, tx8_recipient_update1);
 
 console.log('private tree root (offline): ', privateTree.getRoot().toString());
 console.log(
@@ -528,7 +532,7 @@ console.log(
 );
 
 //Update & test nullifier tree
-nullifierTree.set(calculatedKey2, Field(1));
+nullifierTree.set(tx8_calculatedKey, Field(1));
 
 console.log(
   'nullifier map root (offline): ',
@@ -541,15 +545,19 @@ console.log(
 
 //update & test public tree
 user2_bal = user2_bal.add(tx8_transfer_amt);
-const t8_recipient_leaf = publicLeaf(user2_pk, user2_bal);
-publicTree.setLeaf(user2_idx, t8_recipient_leaf);
+const tx8_recipient_leaf = publicLeaf(user2_pk, user2_bal);
+publicTree.setLeaf(user2_idx, tx8_recipient_leaf);
 console.log('public tree root (offline): ', publicTree.getRoot().toString());
 console.log(
   'public tree root after txn8:',
   zkAppInstance.publicTreeRoot.get().toString()
 );
 
-//TODO check index
+//check nextPrivateIndex
+console.log(
+  'nextPrivateIndex(expected 4) = ',
+  zkAppInstance.nextPrivateIndex.get().toBigInt()
+);
 
 // ----------------------------------------------------
 console.log('--- Shutting down ---');

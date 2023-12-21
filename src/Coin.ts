@@ -433,10 +433,13 @@ export class Coin extends SmartContract {
       senderNonce1
     );
 
-    //TODO assert utxo0 != utxo1 (double spend)
-
-    //sum total LHS
-    const amount = senderAmount0.add(senderAmount1);
+    //if utxo0 == utxo1, only count the amount once,
+    //otherwise sum nullifier0 and nullifier1
+    const amount = Circuit.if(
+      nulliferWitness0.equals(nulliferWitness1),
+      senderAmount0,
+      senderAmount0.add(senderAmount1)
+    );
 
     //assert sender signature
     senderSig
@@ -447,7 +450,8 @@ export class Coin extends SmartContract {
     let privateRootAfter = privateRoot;
     let newIndex = this.nextPrivateIndex.getAndAssertEquals();
 
-    //TODO assert sum of input = sum of output
+    //assert sum of input = sum of output
+    amount.assertEquals(recipientAmount0.add(recipientAmount1));
 
     //verify private & increment (0)
     let utxoLeaf = this.verifyPrivateWitness(
@@ -550,10 +554,13 @@ export class Coin extends SmartContract {
       senderNonce1
     );
 
-    //TODO assert utxo0 != utxo1 (double spend)
-
-    //sum total LHS
-    const amount = senderAmount0.add(senderAmount1);
+    //if utxo0 == utxo1, only count the amount once,
+    //otherwise sum nullifier0 and nullifier1
+    const amount = Circuit.if(
+      nulliferWitness0.equals(nulliferWitness1),
+      senderAmount0,
+      senderAmount0.add(senderAmount1)
+    );
 
     //assert sender signature
     senderSig
@@ -564,7 +571,8 @@ export class Coin extends SmartContract {
     let privateRootAfter = privateRoot;
     let newIndex = this.nextPrivateIndex.getAndAssertEquals();
 
-    //TODO assert sum of input = sum of output
+    //assert sum of input = sum of output
+    amount.assertEquals(recipientAmount0.add(publicAmount));
 
     //verify private & increment (0)
     let utxoLeaf = this.verifyPrivateWitness(
