@@ -78,8 +78,6 @@ describe('End-to-end test', async () => {
   const initialPrivateRoot = privateTree.getRoot();
   const initialNullifierRoot = nullifierTree.getRoot();
 
-  let merkleListener;
-
   // --- init users ---
   // Create a public/private key pair. For users
   //public users
@@ -131,9 +129,9 @@ describe('End-to-end test', async () => {
   }
   // -------------------- initState --------------------------------
 
-  console.log('--- deploy & init state ---');
+  //console.log('--- deploy & init state ---');
 
-  merkleListener = new MerkleListener(zkAppInstance, height, api_port);
+  const merkleListener = new MerkleListener(zkAppInstance, height, api_port);
 
   it('contract deploys with correct merkle roots', async () => {
     const txn1 = await Mina.transaction(senderAccount, () => {
@@ -150,13 +148,13 @@ describe('End-to-end test', async () => {
       initialPublicRoot.toString(),
       zkAppInstance.publicTreeRoot.get().toString()
     );
-    // console.log('tree state:           ', initialPublicRoot.toString());
+    console.log('tree state:           ', initialPublicRoot.toString());
     // console.log('tree state after txn1:', publicTreeRoot1.toString());
   });
 
   // ----------------------- tx2 public mint -----------------------------
 
-  console.log('--- tx2 public mint ---');
+  //console.log('--- tx2 public mint ---');
 
   const user1_idx = BigInt(2);
   const mint_amt = Field(10);
@@ -164,6 +162,7 @@ describe('End-to-end test', async () => {
   //update off-chain tree
   const leafWitness = new MerkleWitness32(publicTree.getWitness(user1_idx));
 
+  it('minting of public tokens', async () => {
   const txn2 = await Mina.transaction(senderAccount, () => {
     zkAppInstance.mint(
       leafWitness,
@@ -198,13 +197,18 @@ describe('End-to-end test', async () => {
   console.log(tmp2.data);*/
 
   //compare merkle root
-  const publicTreeRoot2 = zkAppInstance.publicTreeRoot.get();
-  console.log('tree state (offline): ', publicTree.getRoot().toString());
-  console.log('tree state after txn2:', publicTreeRoot2.toString());
+    assert.equal(
+      publicTree.getRoot().toString(),
+      zkAppInstance.publicTreeRoot.get().toString()
+    );
+    // const publicTreeRoot2 = zkAppInstance.publicTreeRoot.get();
+    // console.log('tree state (offline): ', publicTree.getRoot().toString());
+    // console.log('tree state after txn2:', publicTreeRoot2.toString());
+  });
 
   // ----------------------- tx3 public transfer -----------------------------
 
-  console.log('--- tx3 public-public transfer ---');
+  //console.log('--- tx3 public-public transfer ---');
 
   const user2_idx = BigInt(6);
   const tx3_transfer_amt = Field(7);
