@@ -16,6 +16,7 @@ class MerkleListener {
   lastFetched: UInt32 = UInt32.from(0);
   serverPort: number;
   app: Express;
+  shutdownCB: Function;
 
   constructor(inst: Coin, height: number, serverPort = -1) {
     this.coinInstance = inst;
@@ -69,8 +70,11 @@ class MerkleListener {
   }
 
   async start() {
-    this.app.listen(this.serverPort, () => {
+    let server = this.app.listen(this.serverPort, () => {
       console.log(`  MerkleListener rest api started on port ${this.serverPort}`);
+      this.shutdownCB = () =>{
+        server.close();
+      }
     });
 
   }
@@ -120,12 +124,7 @@ class MerkleListener {
   }
 
   shutdown() {
-    //this.app.
-    // if (this.server) {
-    //   this.server.close(() => {
-    //     //console.log('Server closed');
-    //   });
-    // }
+    this.shutdownCB();
   }
 }
 

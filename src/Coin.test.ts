@@ -577,8 +577,9 @@ describe('End-to-end test', async () => {
       "4",
       zkAppInstance.nextPrivateIndex.get().toString()
     );
+
+    //close merkle listener
+    merkleListener.shutdown();
   });
 
-  // ----------------------------------------------------
-  merkleListener.shutdown();
 });
