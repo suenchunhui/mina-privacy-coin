@@ -16,13 +16,12 @@
   "scripts": {
     "build": "tsc",
     "buildw": "tsc --watch",
-    "main": "npm run build && mocha --timeout 60000 build/src/main.js",
+    "test": "npm run build && mocha --timeout 60000 build/src/Coin.test.js",
     "coverage": "node --experimental-vm-modules --experimental-wasm-threads node_modules/jest/bin/jest.js --coverage",
     "format": "prettier --write --ignore-unknown **/*",
     "prepare": "husky install",
-    "test": "node --experimental-vm-modules --experimental-wasm-threads node_modules/jest/bin/jest.js",
-    "testw": "node --experimental-vm-modules --experimental-wasm-threads node_modules/jest/bin/jest.js --watch",
-    "lint": "npx eslint src/* --fix"
+    "lint": "npx eslint src/* --fix",
+    "deploy": "zkapp deploy"
   },
   "lint-staged": {
     "**/*": [
@@ -45,7 +44,8 @@
     "mocha": "^10.2.0",
     "prettier": "^2.3.2",
     "ts-jest": "^27.0.7",
-    "typescript": "^4.7.2"
+    "typescript": "^4.7.2",
+    "zkapp-cli": "^0.15.0"
   },
   "dependencies": {
     "@types/chai": "^4.3.11",
