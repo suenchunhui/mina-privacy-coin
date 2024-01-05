@@ -1,4 +1,5 @@
 import express, { Express, Request, Response } from 'express';
+import axios from 'axios';
 import { Coin } from './Coin.js';
 import {
   Field,
@@ -7,28 +8,26 @@ import {
   UInt32,
 } from 'o1js';
 
-//const events = await zkapp.fetchEvents(UInt32.from(0));
-// Fetch all events starting at block 560 and ending at block 600
-//const events = await zkapp.fetchEvents(UInt32.from(560), UInt32.from(600));
-
 class MerkleListener {
   coinInstance: Coin;
   publicTree: MerkleTree;
   privateTree: MerkleTree;
   nullifierTree: MerkleMap;
   lastFetched: UInt32 = UInt32.from(0);
-  server;
+  serverPort: number;
+  app: Express;
 
   constructor(inst: Coin, height: number, serverPort = -1) {
     this.coinInstance = inst;
     this.publicTree = new MerkleTree(height);
     this.privateTree = new MerkleTree(height);
     this.nullifierTree = new MerkleMap();
+    this.serverPort = serverPort;
 
     //express server to return tree root and witness using rest api
     if (serverPort > 0) {
-      let app = express();
-      app.get('/:tree/:fn', (req: Request, res: Response) => {
+      this.app = express();
+      this.app.get('/:tree/:fn', (req: Request, res: Response) => {
         let tree: MerkleTree | MerkleMap;
         switch (req.params.tree) {
           case 'public':
@@ -66,11 +65,14 @@ class MerkleListener {
             throw Error('Undefined function selector');
         }
       });
-
-      this.server = app.listen(serverPort, () => {
-        console.log(`MerkleListener rest api started on port ${serverPort}`);
-      });
     }
+  }
+
+  async start() {
+    this.app.listen(this.serverPort, () => {
+      console.log(`  MerkleListener rest api started on port ${this.serverPort}`);
+    });
+
   }
 
   async fetchEvents() {
@@ -118,12 +120,53 @@ class MerkleListener {
   }
 
   shutdown() {
-    if (this.server) {
-      this.server.close(() => {
-        //console.log('Server closed');
-      });
-    }
+    //this.app.
+    // if (this.server) {
+    //   this.server.close(() => {
+    //     //console.log('Server closed');
+    //   });
+    // }
   }
 }
 
-export default MerkleListener;
+class MerkleListenerLib {
+  host: string;
+  port: number;
+
+  constructor(host:string, port:number){
+    this.host = host;
+    this.port = port;
+  }
+
+  async _get(treeType:string, value:string){
+    const tmp = await axios.get(`http://${this.host}:${this.port}/${treeType}/${value}`);
+    return tmp.data;
+  }
+
+  async getPublicRoot(){
+    return this._get("public", "root");
+  }
+
+  async getPrivateRoot(){
+    return this._get("private", "root");
+  }
+
+  async getNullifierRoot(){
+    return this._get("nullifier", "root");
+  }
+
+  async getPublicWitness(){
+    return this._get("public", "witness");
+  }
+
+  async getPrivateWitness(){
+    return this._get("private", "witness");
+  }
+
+  async getNullifierWitness(){
+    return this._get("nullifier", "witness");
+  }
+}
+
+
+export {MerkleListener, MerkleListenerLib};

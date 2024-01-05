@@ -266,12 +266,10 @@ export class Coin extends SmartContract {
     amount: Field
   ) {
     //assert public root
-    const publicRoot = this.publicTreeRoot.get();
-    this.publicTreeRoot.assertEquals(publicRoot);
+    const publicRoot = this.publicTreeRoot.getAndAssertEquals();
 
     //assert private root
-    const privateRoot = this.privateTreeRoot.get();
-    this.privateTreeRoot.assertEquals(privateRoot);
+    const privateRoot = this.privateTreeRoot.getAndAssertEquals();
 
     //assert sender witness
     const senderRootBefore = senderWitness.calculateRoot(
@@ -280,9 +278,11 @@ export class Coin extends SmartContract {
     senderRootBefore.assertEquals(publicRoot);
 
     //assert private tree
+    const currIndex = this.nextPrivateIndex.getAndAssertEquals();
     const privateRootBefore = newPrivateWitness.calculateRoot(Field(0));
     privateRoot.assertEquals(privateRootBefore);
     this.nextPrivateIndex.assertEquals(newPrivateWitness.calculateIndex());
+    currIndex.assertEquals(newPrivateWitness.calculateIndex());
 
     //assert sender signature
     senderSig.verify(sender, [publicRoot, privateRoot, amount]).assertTrue();
@@ -295,7 +295,7 @@ export class Coin extends SmartContract {
 
     //calculate new utxo leaf and index
     const utxoLeaf = this.privateUTXOLeaf(recipient, amount, nonce);
-    const newIndex = this.nextPrivateIndex.get().add(1);
+    const newIndex = currIndex.add(1);
 
     //calculate new public root
     const publicRootAfter = senderWitness.calculateRoot(newPublicLeaf);
@@ -315,7 +315,7 @@ export class Coin extends SmartContract {
     this.emitEvent('update-public-leaf', newPublicLeaf);
 
     //emit events for recipient leaf (append to utxo tree)
-    this.emitEvent('update-private-leaf-index', newIndex);
+    this.emitEvent('update-private-leaf-index', currIndex);
     this.emitEvent('update-private-leaf', utxoLeaf);
   }
 

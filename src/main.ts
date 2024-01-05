@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { Coin } from './Coin.js';
-import MerkleListener from './server.js';
+import {MerkleListener, MerkleListenerLib} from './server.js';
 import {
   Field,
   Mina,
@@ -15,7 +15,6 @@ import {
   Nullifier,
   Signature,
 } from 'o1js';
-//import axios from 'axios';
 import { assert } from 'chai';
 
 // --- additional helper functions ---
@@ -58,7 +57,7 @@ describe('End-to-end test', async () => {
     const useProof = false;
     Local = Mina.LocalBlockchain({ proofsEnabled: useProof });
     Mina.setActiveInstance(Local);
-    console.log('Using local network');
+    console.log('  Using local network');
 
     senderKey = Local.testAccounts[1].privateKey;
     senderAccount = Local.testAccounts[1].publicKey;
@@ -135,6 +134,8 @@ describe('End-to-end test', async () => {
   // -------------------- initState --------------------------------
 
   const merkleListener = new MerkleListener(zkAppInstance, height, api_port);
+  await merkleListener.start();
+  const listener = new MerkleListenerLib("localhost", api_port);
 
   it('contract deploys with correct merkle roots', async () => {
     const txn1 = await Mina.transaction(senderAccount, () => {
@@ -151,8 +152,6 @@ describe('End-to-end test', async () => {
       initialPublicRoot.toString(),
       zkAppInstance.publicTreeRoot.get().toString()
     );
-    console.log('tree state:           ', initialPublicRoot.toString());
-    // console.log('tree state after txn1:', publicTreeRoot1.toString());
   });
 
   // ----------------------- tx2 public mint -----------------------------
@@ -178,32 +177,20 @@ describe('End-to-end test', async () => {
     //events
     await merkleListener.fetchEvents();
 
-    const t2_leaf_update_idx =
-      txn2.transaction.accountUpdates[0].body.events.data[1][1];
-    const t2_leaf_update_data =
-      txn2.transaction.accountUpdates[0].body.events.data[0][1];
-    console.log(
-      `leaf update: index: ${t2_leaf_update_idx} data: ${t2_leaf_update_data}`
-    );
-
     //offline merkle tree update
-    const t2_leaf_update_data_offline = publicLeaf(user1_pk, mint_amt);
-    console.log(`leaf data computation:      ${t2_leaf_update_data_offline}`);
     publicTree.setLeaf(user1_idx, publicLeaf(user1_pk, mint_amt));
      
-    /*const tmp = await axios.get(`http://localhost:${api_port}/public/root`);
-    console.log(tmp);
-    const tmp2 = await axios.get(`http://localhost:${api_port}/public/witness?index=2`);
-    console.log(tmp2.data);*/
-
     //compare merkle root
     assert.equal(
       publicTree.getRoot().toString(),
       zkAppInstance.publicTreeRoot.get().toString()
     );
-    // const publicTreeRoot2 = zkAppInstance.publicTreeRoot.get();
-    // console.log('tree state (offline): ', publicTree.getRoot().toString());
-    // console.log('tree state after txn2:', publicTreeRoot2.toString());
+
+    //check merkle listener
+    assert.equal(
+      publicTree.getRoot().toString(),
+      await listener.getPublicRoot()
+    );
 
     user1_bal = user1_bal.add(mint_amt);
   });
@@ -259,10 +246,17 @@ describe('End-to-end test', async () => {
     publicTree.setLeaf(user1_idx, t3_sender_update_data_offline);
     publicTree.setLeaf(user2_idx, t3_recipient_update_data_offline);
 
+    //check computed public tree
     assert.equal(
       publicTree.getRoot().toString(),
       zkAppInstance.publicTreeRoot.get().toString()
     );
+
+    //check merkle listener
+    assert.equal(
+      publicTree.getRoot().toString(),
+      await listener.getPublicRoot()
+    );    
 
     user1_bal = user1_bal.sub(tx3_transfer_amt);
     user2_bal = Field(tx3_transfer_amt);
@@ -323,6 +317,7 @@ describe('End-to-end test', async () => {
     user2_bal = user2_bal.sub(tx5_transfer_amt);
     pv_user3_bal = tx5_transfer_amt;
 
+    //check computed public and private tree
     assert.equal(
       publicTree.getRoot().toString(),
       zkAppInstance.publicTreeRoot.get().toString()
@@ -331,6 +326,17 @@ describe('End-to-end test', async () => {
       privateTree.getRoot().toString(),
       zkAppInstance.privateTreeRoot.get().toString()
     );
+
+    //check merkle listener
+    assert.equal(
+      publicTree.getRoot().toString(),
+      await listener.getPublicRoot()
+    );
+    assert.equal(
+      privateTree.getRoot().toString(),
+      await listener.getPrivateRoot()
+    );
+
   });
 
   // ----------------------- tx7 private->private transfer -----------------------------
@@ -408,6 +414,8 @@ describe('End-to-end test', async () => {
     await txn7.prove();
     await txn7.sign([senderKey]).send();
 
+    await merkleListener.fetchEvents();
+
     //Update private tree
     const tx7_recipient_update1 = privateUTXOLeaf(
       pv_user3_pk,
@@ -421,6 +429,12 @@ describe('End-to-end test', async () => {
       zkAppInstance.privateTreeRoot.get().toString()
     );
 
+    // //check merkle listener
+    assert.equal(
+      privateTree.getRoot().toString(),
+      await listener.getPrivateRoot()
+    );
+
     //Update nullifier tree
     nullifierTree.set(tx7_calculatedKey, Field(1));
 
@@ -428,11 +442,17 @@ describe('End-to-end test', async () => {
       nullifierTree.getRoot().toString(),
       zkAppInstance.nullifierMapRoot.get().toString()
     );
+
+    //check merkle listener
+    // FIXME!!!
+    assert.equal(
+      nullifierTree.getRoot().toString(),
+      await listener.getNullifierRoot()
+    );
   });
 
   //TODO check node js listener is correct
 
-  await merkleListener.fetchEvents();
 
   // ----------------------- tx8 private->public transfer -----------------------------
 
@@ -519,12 +539,22 @@ describe('End-to-end test', async () => {
       zkAppInstance.privateTreeRoot.get().toString()
     );
 
+    //check merkle listener
+    assert.equal(
+      privateTree.getRoot().toString(),
+      await listener.getPrivateRoot()
+    );
+
     //Update & test nullifier tree
     nullifierTree.set(tx8_calculatedKey, Field(1));
 
     assert.equal(
       nullifierTree.getRoot().toString(),
       zkAppInstance.nullifierMapRoot.get().toString()
+    );
+    assert.equal(
+      nullifierTree.getRoot().toString(),
+      await listener.getNullifierRoot()
     );
 
     //update & test public tree
@@ -535,6 +565,11 @@ describe('End-to-end test', async () => {
     assert.equal(
       publicTree.getRoot().toString(),
       zkAppInstance.publicTreeRoot.get().toString()
+    );
+    //check merkle listener
+    assert.equal(
+      publicTree.getRoot().toString(),
+      await listener.getPublicRoot()
     );
     
     //check nextPrivateIndex
