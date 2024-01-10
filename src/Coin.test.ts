@@ -161,10 +161,10 @@ describe('End-to-end test', async () => {
 
   it('minting of public tokens', async () => {
     //update off-chain tree
-    const leafWitness = new MerkleWitness32(publicTree.getWitness(user1_idx));
+    const tx2_leafWitness = new MerkleWitness32(publicTree.getWitness(user1_idx));
     const txn2 = await Mina.transaction(senderAccount, () => {
       zkAppInstance.mint(
-        leafWitness,
+        tx2_leafWitness,
         Bool(true), //emptyLeaf
         user1_pk, //recipient
         Field(0), //currentBal
@@ -172,7 +172,7 @@ describe('End-to-end test', async () => {
       );
     });
     await txn2.prove();
-    const d = await txn2.sign([senderKey]).send();
+    await txn2.sign([senderKey]).send();
 
     //events
     await merkleListener.fetchEvents();
@@ -200,12 +200,12 @@ describe('End-to-end test', async () => {
   it('public to public token transfer', async () => {
     const tx3_transfer_amt = Field(7);
   
-    const senderWitness = new MerkleWitness32(publicTree.getWitness(user1_idx));
-    const recipientWitness = new MerkleWitness32(
+    const tx3_senderWitness = new MerkleWitness32(publicTree.getWitness(user1_idx));
+    const tx3_recipientWitness = new MerkleWitness32(
       publicTree.getWitness(user2_idx)
     );
   
-    const sig3 = Signature.create(user1_priv, [
+    const tx3_sig = Signature.create(user1_priv, [
       publicTree.getRoot(),
       tx3_transfer_amt,
     ]);
@@ -213,14 +213,14 @@ describe('End-to-end test', async () => {
     const txn3 = await Mina.transaction(senderAccount, () => {
       zkAppInstance.transfer(
         //sender
-        senderWitness,
+        tx3_senderWitness,
         user1_pk,
         mint_amt, //sender bal
-        sig3, //signature
+        tx3_sig, //signature
 
         //recipient
         Bool(true), //emptyRecipientLeaf
-        recipientWitness,
+        tx3_recipientWitness,
         user2_pk,
         Field(0), //recipientBal
 
@@ -269,9 +269,9 @@ describe('End-to-end test', async () => {
   const tx5_nonce = Field(Math.floor(Math.random() * 100000)); //TODO not-crypto secure random
 
   it('public to private token transfer', async () => {    
-    const senderWitness5 = new MerkleWitness32(publicTree.getWitness(user2_idx));
-    let utxo_index = 0n;
-    let utxoWitness = new MerkleWitness32(privateTree.getWitness(utxo_index));
+    const tx5_senderWitness = new MerkleWitness32(publicTree.getWitness(user2_idx));
+    let tx5_utxo_index = 0n;
+    let tx5_utxoWitness = new MerkleWitness32(privateTree.getWitness(tx5_utxo_index));
     const sig5 = Signature.create(user2_priv, [
       publicTree.getRoot(),
       privateTree.getRoot(),
@@ -281,7 +281,7 @@ describe('End-to-end test', async () => {
     const txn5 = await Mina.transaction(senderAccount, () => {
       zkAppInstance.transferToPrivate(
         //sender
-        senderWitness5,
+        tx5_senderWitness,
         user2_pk,
         user2_bal,
         sig5, //signature
@@ -289,7 +289,7 @@ describe('End-to-end test', async () => {
         //recipient
         pv_user3_pk, //recipient
         tx5_nonce, //nonce
-        utxoWitness, //newPrivateWitness
+        tx5_utxoWitness, //newPrivateWitness
 
         //amount
         tx5_transfer_amt
@@ -307,12 +307,12 @@ describe('End-to-end test', async () => {
       user2_bal.sub(tx5_transfer_amt)
     );
     publicTree.setLeaf(user2_idx, t5_sender_update_data_offline);
-    const t5_recipient_update_data_offline = privateUTXOLeaf(
+    const tx5_recipient_update_data_offline = privateUTXOLeaf(
       pv_user3_pk,
       tx5_transfer_amt,
       tx5_nonce
     );
-    privateTree.setLeaf(utxo_index, t5_recipient_update_data_offline);
+    privateTree.setLeaf(tx5_utxo_index, tx5_recipient_update_data_offline);
 
     user2_bal = user2_bal.sub(tx5_transfer_amt);
     pv_user3_bal = tx5_transfer_amt;
@@ -361,7 +361,7 @@ describe('End-to-end test', async () => {
       tx5_transfer_amt,
     ]);
   
-    const utxoWitness0 = new MerkleWitness32(privateTree.getWitness(0n));
+    const tx7_utxoWitness0 = new MerkleWitness32(privateTree.getWitness(0n));
   
     const tx7_newPrivateWitness0 = new MerkleWitness32(
       privateTree.getWitness(1n)
@@ -383,14 +383,14 @@ describe('End-to-end test', async () => {
         //utxo0 to spend
         tx7_nullifer0,
         tx7_nulliferWitness0,
-        utxoWitness0,
+        tx7_utxoWitness0,
         tx5_transfer_amt,
         tx5_nonce,
 
         //utxo1 (repeat)
         tx7_nullifer0,
         tx7_nulliferWitness0,
-        utxoWitness0,
+        tx7_utxoWitness0,
         tx5_transfer_amt,
         tx5_nonce,
 
@@ -429,7 +429,7 @@ describe('End-to-end test', async () => {
       zkAppInstance.privateTreeRoot.get().toString()
     );
 
-    // //check merkle listener
+    //check merkle listener
     assert.equal(
       privateTree.getRoot().toString(),
       await listener.getPrivateRoot()
@@ -444,15 +444,11 @@ describe('End-to-end test', async () => {
     );
 
     //check merkle listener
-    // FIXME!!!
     assert.equal(
       nullifierTree.getRoot().toString(),
       await listener.getNullifierRoot()
     );
   });
-
-  //TODO check node js listener is correct
-
 
   // ----------------------- tx8 private->public transfer -----------------------------
 
@@ -477,7 +473,7 @@ describe('End-to-end test', async () => {
     ]);
   
     const tx8_recipientNonce0 = Field(Math.floor(Math.random() * 100000));
-    let newPrivateWitness8_0 = new MerkleWitness32(privateTree.getWitness(3n)); //new empty slot
+    let tx8_newPrivateWitness0 = new MerkleWitness32(privateTree.getWitness(3n)); //new empty slot
   
     //public recipient
     const tx8_recipientWitness = new MerkleWitness32(
@@ -510,7 +506,7 @@ describe('End-to-end test', async () => {
         pv_user4_pk,
         tx7_transfer_amt.sub(tx8_transfer_amt),
         tx8_recipientNonce0,
-        newPrivateWitness8_0,
+        tx8_newPrivateWitness0,
 
         //recipient
         Bool(false), //emptyRecipientLeaf
