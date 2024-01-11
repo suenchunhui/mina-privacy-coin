@@ -17,6 +17,7 @@
     "build": "tsc",
     "buildw": "tsc --watch",
     "test": "npm run build && mocha --timeout 60000 build/src/Coin.test.js",
+    "test_sales": "npm run build && npx mocha --timeout 60000 build/src/Sales.test.js",
     "coverage": "node --experimental-vm-modules --experimental-wasm-threads node_modules/jest/bin/jest.js --coverage",
     "format": "prettier --write --ignore-unknown **/*",
     "prepare": "husky install",
