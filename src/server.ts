@@ -1,12 +1,7 @@
 import express, { Express, Request, Response } from 'express';
 import axios from 'axios';
 import { Coin } from './Coin.js';
-import {
-  Field,
-  MerkleTree,
-  MerkleMap,
-  UInt32,
-} from 'o1js';
+import { Field, MerkleTree, MerkleMap, UInt32 } from 'o1js';
 
 class MerkleListener {
   coinInstance: Coin;
@@ -16,7 +11,7 @@ class MerkleListener {
   lastFetched: UInt32 = UInt32.from(0);
   serverPort: number;
   app: Express;
-  shutdownCB: Function;
+  shutdownCB: () => void;
 
   constructor(inst: Coin, height: number, serverPort = -1) {
     this.coinInstance = inst;
@@ -40,8 +35,8 @@ class MerkleListener {
           case 'nullifier':
             tree = this.nullifierTree;
             break;
-  
-            default:
+
+          default:
             throw Error('Undefined tree selector');
         }
 
@@ -52,9 +47,9 @@ class MerkleListener {
           case 'witness':
             if (req.query.index) {
               let w;
-              if(tree instanceof MerkleTree){
+              if (tree instanceof MerkleTree) {
                 w = tree.getWitness(BigInt(req.query.index.toString()));
-              }else{
+              } else {
                 w = tree.getWitness(Field(req.query.index.toString()));
               }
               res.send(JSON.stringify(w));
@@ -71,12 +66,13 @@ class MerkleListener {
 
   async start() {
     let server = this.app.listen(this.serverPort, () => {
-      console.log(`  MerkleListener rest api started on port ${this.serverPort}`);
-      this.shutdownCB = () =>{
+      console.log(
+        `  MerkleListener rest api started on port ${this.serverPort}`
+      );
+      this.shutdownCB = () => {
         server.close();
-      }
+      };
     });
-
   }
 
   async fetchEvents() {
@@ -87,19 +83,21 @@ class MerkleListener {
 
     let public_leaf: Field = Field(-1);
     let private_leaf: Field = Field(-1);
+    let public_index: bigint;
+    let private_index: bigint;
+    let nullifier_index: bigint;
 
     //process events
     //console.log(events);
     events.forEach((e) => {
-      if (e.blockHeight > this.lastFetched) 
-        this.lastFetched = e.blockHeight;
+      if (e.blockHeight > this.lastFetched) this.lastFetched = e.blockHeight;
 
       switch (e.type) {
         case 'update-public-leaf':
           public_leaf = e.event.data.toFields(0)[0];
           break;
         case 'update-public-leaf-index':
-          let public_index = e.event.data.toFields(0)[0].toBigInt();
+          public_index = e.event.data.toFields(0)[0].toBigInt();
           if (public_index != -1n && public_leaf != Field(-1)) {
             this.publicTree.setLeaf(public_index, public_leaf);
             public_leaf = Field(-1);
@@ -109,14 +107,14 @@ class MerkleListener {
           private_leaf = e.event.data.toFields(0)[0];
           break;
         case 'update-private-leaf-index':
-          let private_index = e.event.data.toFields(0)[0].toBigInt();
+          private_index = e.event.data.toFields(0)[0].toBigInt();
           if (private_index != -1n && private_leaf != Field(-1)) {
             this.privateTree.setLeaf(private_index, private_leaf);
             private_leaf = Field(-1);
           }
           break;
         case 'update-nullifier-leaf-index':
-          let nullifier_index = e.event.data.toFields(0)[0].toBigInt();
+          nullifier_index = e.event.data.toFields(0)[0].toBigInt();
           this.nullifierTree.set(Field(nullifier_index), Field(1));
           break;
       }
@@ -132,40 +130,41 @@ class MerkleListenerLib {
   host: string;
   port: number;
 
-  constructor(host:string, port:number){
+  constructor(host: string, port: number) {
     this.host = host;
     this.port = port;
   }
 
-  async _get(treeType:string, value:string){
-    const tmp = await axios.get(`http://${this.host}:${this.port}/${treeType}/${value}`);
+  async _get(treeType: string, value: string) {
+    const tmp = await axios.get(
+      `http://${this.host}:${this.port}/${treeType}/${value}`
+    );
     return tmp.data;
   }
 
-  async getPublicRoot(){
-    return this._get("public", "root");
+  async getPublicRoot() {
+    return this._get('public', 'root');
   }
 
-  async getPrivateRoot(){
-    return this._get("private", "root");
+  async getPrivateRoot() {
+    return this._get('private', 'root');
   }
 
-  async getNullifierRoot(){
-    return this._get("nullifier", "root");
+  async getNullifierRoot() {
+    return this._get('nullifier', 'root');
   }
 
-  async getPublicWitness(){
-    return this._get("public", "witness");
+  async getPublicWitness() {
+    return this._get('public', 'witness');
   }
 
-  async getPrivateWitness(){
-    return this._get("private", "witness");
+  async getPrivateWitness() {
+    return this._get('private', 'witness');
   }
 
-  async getNullifierWitness(){
-    return this._get("nullifier", "witness");
+  async getNullifierWitness() {
+    return this._get('nullifier', 'witness');
   }
 }
 
-
-export {MerkleListener, MerkleListenerLib};
+export { MerkleListener, MerkleListenerLib };

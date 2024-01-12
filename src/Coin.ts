@@ -7,7 +7,6 @@ import {
   MerkleWitness,
   PublicKey,
   Bool,
-  Circuit,
   Poseidon,
   Signature,
   Nullifier,
@@ -34,7 +33,7 @@ function calculateIndexAtHeight(witness: MerkleWitness32, h: number): Field {
   let n = witness.height();
 
   for (let i = h; i < n - 1; i++) {
-    index = Circuit.if(witness.isLeft[i], index, index.add(powerOfTwo));
+    index = Provable.if(witness.isLeft[i], index, index.add(powerOfTwo));
     powerOfTwo = powerOfTwo.mul(2);
   }
   return index;
@@ -60,14 +59,14 @@ function calculateUpdate2Roots(
 
     if (i == n - 1) return merged_hash;
 
-    hash1 = Circuit.if(
+    hash1 = Provable.if(
       idx1_next.equals(idx2_next),
-      Circuit.if(witness1.isLeft[i], merged_hash, witness1.path[i]),
+      Provable.if(witness1.isLeft[i], merged_hash, witness1.path[i]),
       nextHash(witness1.isLeft[i - 1], hash1, witness1.path[i - 1])
     );
-    hash2 = Circuit.if(
+    hash2 = Provable.if(
       idx1_next.equals(idx2_next),
-      Circuit.if(witness1.isLeft[i], witness1.path[i], merged_hash),
+      Provable.if(witness1.isLeft[i], witness1.path[i], merged_hash),
       nextHash(witness2.isLeft[i - 1], hash2, witness2.path[i - 1])
     );
 
@@ -144,7 +143,7 @@ export class Coin extends SmartContract {
     this.publicTreeRoot.assertEquals(rootBefore);
 
     //leaf node is Field(0) if uninitialized, otherwise, use publicLeaf() to construct a hash of the node
-    const leafBeforeData = Circuit.if(
+    const leafBeforeData = Provable.if(
       emptyLeaf,
       Field(0),
       this.publicLeaf(recipient, currentBal)
@@ -154,7 +153,7 @@ export class Coin extends SmartContract {
     rootBefore.assertEquals(leafWitness.calculateRoot(leafBeforeData));
 
     //new balance
-    const newBalance = Circuit.if(
+    const newBalance = Provable.if(
       emptyLeaf,
       incrementAmount,
       currentBal.add(incrementAmount)
@@ -204,7 +203,7 @@ export class Coin extends SmartContract {
 
     //assert recipient witness
     //leaf node is Field(0) if uninitialized, otherwise, use publicLeaf() to construct a hash of the node
-    const leafDataBefore = Circuit.if(
+    const leafDataBefore = Provable.if(
       emptyRecipientLeaf,
       Field(0),
       this.publicLeaf(recipient, recipientBal)
@@ -219,7 +218,7 @@ export class Coin extends SmartContract {
     const leafData1 = this.publicLeaf(sender, senderBal.sub(amount));
 
     //calculate new recipient leaf
-    const newRecipientBal = Circuit.if(
+    const newRecipientBal = Provable.if(
       emptyRecipientLeaf,
       amount,
       recipientBal.add(amount)
@@ -435,7 +434,7 @@ export class Coin extends SmartContract {
 
     //if utxo0 == utxo1, only count the amount once,
     //otherwise sum nullifier0 and nullifier1
-    const amount = Circuit.if(
+    const amount = Provable.if(
       nulliferWitness0.equals(nulliferWitness1),
       senderAmount0,
       senderAmount0.add(senderAmount1)
@@ -556,7 +555,7 @@ export class Coin extends SmartContract {
 
     //if utxo0 == utxo1, only count the amount once,
     //otherwise sum nullifier0 and nullifier1
-    const amount = Circuit.if(
+    const amount = Provable.if(
       nulliferWitness0.equals(nulliferWitness1),
       senderAmount0,
       senderAmount0.add(senderAmount1)
@@ -605,7 +604,7 @@ export class Coin extends SmartContract {
 
     //assert recipient witness
     //leaf node is Field(0) if uninitialized, otherwise, use publicLeaf() to construct a hash of the node
-    const leafDataBefore = Circuit.if(
+    const leafDataBefore = Provable.if(
       emptyRecipientLeaf,
       Field(0),
       this.publicLeaf(recipient, recipientBal)
@@ -614,7 +613,7 @@ export class Coin extends SmartContract {
     recipientRootBefore.assertEquals(publicRoot);
 
     //calculate new recipient leaf
-    const newRecipientBal = Circuit.if(
+    const newRecipientBal = Provable.if(
       emptyRecipientLeaf,
       publicAmount,
       recipientBal.add(publicAmount)
