@@ -25,6 +25,27 @@ End-to-end test for `Sales.ts` contract
 npm run test_sales
 ```
 
+## How to deploy
+Create a zkapp config:
+```
+npx zk config
+```
+1. Give a config name
+2. Provide Mina GraphQL API: `https://proxy.berkeley.minaexplorer.com/graphql`
+3. Set transaction fee as `1`
+4. Pick a feepayer key (`zkapp` will create one if needed)
+
+Fund the feepayer key using the link provided:
+`https://faucet.minaprotocol.com/?address=<FEEPAYER_KEY>&?explorer=minaexplorer`
+
+Run the deploy command:
+```
+npx zk deploy <config name>
+```
+1. Choose the contract `Coin`
+2. Confirm the deployment with `yes`
+3. Wait for a few minutes for the transaction to be `applied` in the provided explorer link
+
 ## License
 
 [Apache-2.0](LICENSE)
