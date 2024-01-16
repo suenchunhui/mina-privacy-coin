@@ -128,28 +128,11 @@ describe('End-to-end test', async () => {
     });
     await deployTxn.sign([deployerKey, zkAppPrivateKey]).send();
   }
-  // -------------------- initState --------------------------------
+  // -------------------- create listener --------------------------------
 
   const merkleListener = new MerkleListener(zkAppInstance, height, api_port);
   await merkleListener.start();
   const listener = new MerkleListenerLib('localhost', api_port);
-
-  it('contract deploys with correct merkle roots', async () => {
-    const txn1 = await Mina.transaction(senderAccount, () => {
-      zkAppInstance.initState(
-        initialPublicRoot,
-        initialPrivateRoot,
-        initialNullifierRoot
-      );
-    });
-    await txn1.prove();
-    await txn1.sign([senderKey]).send();
-
-    assert.equal(
-      initialPublicRoot.toString(),
-      zkAppInstance.publicTreeRoot.get().toString()
-    );
-  });
 
   // ----------------------- tx2 public mint -----------------------------
 

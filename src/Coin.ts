@@ -4,6 +4,8 @@ import {
   state,
   State,
   method,
+  MerkleTree,
+  MerkleMap,
   MerkleWitness,
   PublicKey,
   Bool,
@@ -86,26 +88,23 @@ export class Coin extends SmartContract {
   @state(Field) nullifierMapRoot = State<Field>();
 
   events = {
-    'update-public-leaf': Field,
+    'update-public-address': PublicKey,
+    'update-public-balance': Field,
     'update-public-leaf-index': Field,
     'update-private-leaf': Field,
     'update-private-leaf-index': Field,
     'update-nullifier-leaf-index': Field,
   };
 
-  @method initState(
-    initialPublicRoot: Field,
-    initialPrivateRoot: Field,
-    initialNullifierRoot: Field
-  ) {
-    this.publicTreeRoot.set(initialPublicRoot);
-    this.privateTreeRoot.set(initialPrivateRoot);
-    this.nextPrivateIndex.set(Field(0));
-    this.nullifierMapRoot.set(initialNullifierRoot);
-  }
-
   init() {
     super.init();
+
+    const emptyTree = new MerkleTree(32);
+    const emptyMap = new MerkleMap();
+    this.publicTreeRoot.set(emptyTree.getRoot());
+    this.privateTreeRoot.set(emptyTree.getRoot());
+    this.nextPrivateIndex.set(Field(0));
+    this.nullifierMapRoot.set(emptyMap.getRoot());
   }
 
   //internal functions ---
@@ -168,7 +167,8 @@ export class Coin extends SmartContract {
 
     //emit events
     this.emitEvent('update-public-leaf-index', leafWitness.calculateIndex());
-    this.emitEvent('update-public-leaf', leafAfter);
+    this.emitEvent('update-public-address', recipient);
+    this.emitEvent('update-public-balance', newBalance);
   }
 
   //public-public transfer
@@ -215,7 +215,8 @@ export class Coin extends SmartContract {
     amount.assertLessThanOrEqual(senderBal);
 
     //calculate new sender leaf
-    const leafData1 = this.publicLeaf(sender, senderBal.sub(amount));
+    const newSenderBal = senderBal.sub(amount);
+    const leafData1 = this.publicLeaf(sender, newSenderBal);
 
     //calculate new recipient leaf
     const newRecipientBal = Provable.if(
@@ -238,14 +239,16 @@ export class Coin extends SmartContract {
 
     //emit events for sender leaf
     this.emitEvent('update-public-leaf-index', senderWitness.calculateIndex());
-    this.emitEvent('update-public-leaf', leafData1);
+    this.emitEvent('update-public-address', sender);
+    this.emitEvent('update-public-balance', newSenderBal);
 
     //emit events for recipient leaf
     this.emitEvent(
       'update-public-leaf-index',
       recipientWitness.calculateIndex()
     );
-    this.emitEvent('update-public-leaf', leafData2);
+    this.emitEvent('update-public-address', recipient);
+    this.emitEvent('update-public-balance', newRecipientBal);
   }
 
   //public->private transfer
@@ -290,7 +293,8 @@ export class Coin extends SmartContract {
     amount.assertLessThanOrEqual(senderBal);
 
     //calculate new sender leaf
-    const newPublicLeaf = this.publicLeaf(sender, senderBal.sub(amount));
+    const newSenderBal = senderBal.sub(amount);
+    const newPublicLeaf = this.publicLeaf(sender, newSenderBal);
 
     //calculate new utxo leaf and index
     const utxoLeaf = this.privateUTXOLeaf(recipient, amount, nonce);
@@ -311,7 +315,8 @@ export class Coin extends SmartContract {
 
     //emit events for sender leaf (in-situ replacement)
     this.emitEvent('update-public-leaf-index', senderWitness.calculateIndex());
-    this.emitEvent('update-public-leaf', newPublicLeaf);
+    this.emitEvent('update-public-address', sender);
+    this.emitEvent('update-public-balance', newSenderBal);
 
     //emit events for recipient leaf (append to utxo tree)
     this.emitEvent('update-private-leaf-index', currIndex);
@@ -631,6 +636,7 @@ export class Coin extends SmartContract {
       'update-public-leaf-index',
       recipientWitness.calculateIndex()
     );
-    this.emitEvent('update-public-leaf', leafData2);
+    this.emitEvent('update-public-address', recipient);
+    this.emitEvent('update-public-balance', newRecipientBal);
   }
 }

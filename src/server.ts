@@ -1,7 +1,14 @@
 import express, { Express, Request, Response } from 'express';
 import axios from 'axios';
 import { Coin } from './Coin.js';
-import { Field, MerkleTree, MerkleMap, UInt32 } from 'o1js';
+import {
+  Field,
+  MerkleTree,
+  MerkleMap,
+  UInt32,
+  PublicKey,
+  Poseidon,
+} from 'o1js';
 
 class MerkleListener {
   coinInstance: Coin;
@@ -75,6 +82,11 @@ class MerkleListener {
     });
   }
 
+  publicLeaf(recipient: PublicKey, amount: Field): Field {
+    const pkfields = recipient.toFields();
+    return Poseidon.hash([pkfields[0], pkfields[1], amount]);
+  }
+
   async fetchEvents() {
     //fetch events
     const events = await this.coinInstance.fetchEvents(
@@ -82,7 +94,9 @@ class MerkleListener {
     );
 
     let public_leaf: Field = Field(-1);
-    let private_leaf: Field = Field(-1);
+    let public_address: PublicKey | null = null;
+    let public_balance: Field = Field(-1);
+    let private_leaf: Field;
     let public_index: bigint;
     let private_index: bigint;
     let nullifier_index: bigint;
@@ -93,14 +107,24 @@ class MerkleListener {
       if (e.blockHeight > this.lastFetched) this.lastFetched = e.blockHeight;
 
       switch (e.type) {
-        case 'update-public-leaf':
-          public_leaf = e.event.data.toFields(0)[0];
+        case 'update-public-address':
+          public_address = PublicKey.fromFields(e.event.data.toFields(0));
+          //console.log(`update-addr ${e.event.data.toFields(0)[0]} ${e.event.data.toFields(0)[1]} ${public_address.toBase58()}`);
+          break;
+        case 'update-public-balance':
+          public_balance = e.event.data.toFields(0)[0];
           break;
         case 'update-public-leaf-index':
           public_index = e.event.data.toFields(0)[0].toBigInt();
-          if (public_index != -1n && public_leaf != Field(-1)) {
+          if (
+            public_index != -1n &&
+            public_balance != Field(-1) &&
+            public_address != null
+          ) {
+            public_leaf = this.publicLeaf(public_address, public_balance);
             this.publicTree.setLeaf(public_index, public_leaf);
-            public_leaf = Field(-1);
+            public_balance = Field(-1);
+            public_address = null;
           }
           break;
         case 'update-private-leaf':

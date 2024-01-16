@@ -62,9 +62,6 @@ describe('End-to-end test', async () => {
   const publicTree = new MerkleTree(height);
   const privateTree = new MerkleTree(height);
   const nullifierTree = new MerkleMap();
-  const initialPublicRoot = publicTree.getRoot();
-  const initialPrivateRoot = privateTree.getRoot();
-  const initialNullifierRoot = nullifierTree.getRoot();
 
   // --- init users ---
   // Create a public/private key pair. For users
@@ -113,17 +110,12 @@ describe('End-to-end test', async () => {
     const deployTxn = await Mina.transaction(deployerAccount, () => {
       AccountUpdate.fundNewAccount(deployerAccount);
       coinInstance.deploy();
-      coinInstance.initState(
-        initialPublicRoot,
-        initialPrivateRoot,
-        initialNullifierRoot
-      );
     });
     await deployTxn.prove();
     await deployTxn.sign([deployerKey, coinPrivateKey]).send();
 
     assert.equal(
-      initialPublicRoot.toString(),
+      publicTree.getRoot().toString(),
       coinInstance.publicTreeRoot.get().toString()
     );
   });
