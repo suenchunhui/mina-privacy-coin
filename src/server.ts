@@ -9,12 +9,15 @@ import {
   PublicKey,
   Poseidon,
 } from 'o1js';
+import { readFileSync, writeFileSync } from 'fs';
+import { join } from 'path';
 
 class MerkleListener {
   coinInstance: Coin;
   publicTree: MerkleTree;
   privateTree: MerkleTree;
   nullifierTree: MerkleMap;
+  publicBalMap: Map<PublicKey, Field>;
   lastFetched: UInt32 = UInt32.from(0);
   serverPort: number;
   app: Express;
@@ -25,6 +28,7 @@ class MerkleListener {
     this.publicTree = new MerkleTree(height);
     this.privateTree = new MerkleTree(height);
     this.nullifierTree = new MerkleMap();
+    this.publicBalMap = new Map<PublicKey, Field>();
     this.serverPort = serverPort;
 
     //express server to return tree root and witness using rest api
@@ -63,6 +67,17 @@ class MerkleListener {
             } else {
               throw Error('Missing witness index');
             }
+            break;
+          case 'balance':
+            if(req.params.tree == 'public'){
+              if(req.query.address){
+                const bal = this.publicBalMap.get(PublicKey.fromBase58(req.query.address?.toString()));
+                if(bal)
+                  res.json(bal.toJSON());
+              }
+              res.status(404);
+            }
+            throw Error('Balance only for public tree');
             break;
           default:
             throw Error('Undefined function selector');
@@ -122,6 +137,7 @@ class MerkleListener {
             public_address != null
           ) {
             public_leaf = this.publicLeaf(public_address, public_balance);
+            this.publicBalMap.set(public_address, public_balance);
             this.publicTree.setLeaf(public_index, public_leaf);
             public_balance = Field(-1);
             public_address = null;
@@ -159,9 +175,9 @@ class MerkleListenerLib {
     this.port = port;
   }
 
-  async _get(treeType: string, value: string) {
+  async _get(treeType: string, value: string, params?: string) {
     const tmp = await axios.get(
-      `http://${this.host}:${this.port}/${treeType}/${value}`
+      `http://${this.host}:${this.port}/${treeType}/${value}${params ? '?'+params : ''}`
     );
     return tmp.data;
   }
@@ -178,16 +194,20 @@ class MerkleListenerLib {
     return this._get('nullifier', 'root');
   }
 
-  async getPublicWitness() {
-    return this._get('public', 'witness');
+  async getPublicWitness(index: number) {
+    return this._get('public', 'witness', `index=${index}`);
   }
 
-  async getPrivateWitness() {
-    return this._get('private', 'witness');
+  async getPrivateWitness(index: number) {
+    return this._get('private', 'witness', `index=${index}`);
   }
 
-  async getNullifierWitness() {
-    return this._get('nullifier', 'witness');
+  async getNullifierWitness(index: number) {
+    return this._get('nullifier', 'witness', `index=${index}`);
+  }
+
+  async getPublicBalance(address: string) {
+    return this._get('nullifier', 'witness', `address=${address}`);
   }
 }
 
