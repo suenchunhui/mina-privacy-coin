@@ -1,4 +1,5 @@
 import express, { Express, Request, Response } from 'express';
+import cors from 'cors';
 import axios from 'axios';
 import { Coin } from './Coin.js';
 import {
@@ -8,16 +9,17 @@ import {
   UInt32,
   PublicKey,
   Poseidon,
+  MerkleWitness,
 } from 'o1js';
-import { readFileSync, writeFileSync } from 'fs';
-import { join } from 'path';
+
+class MerkleWitness32 extends MerkleWitness(32) {}
 
 class MerkleListener {
   coinInstance: Coin;
   publicTree: MerkleTree;
   privateTree: MerkleTree;
   nullifierTree: MerkleMap;
-  publicBalMap: Map<PublicKey, Field>;
+  publicBalMap: Map<PublicKey, {index:bigint, balance:Field}>;
   lastFetched: UInt32 = UInt32.from(0);
   serverPort: number;
   app: Express;
@@ -28,12 +30,13 @@ class MerkleListener {
     this.publicTree = new MerkleTree(height);
     this.privateTree = new MerkleTree(height);
     this.nullifierTree = new MerkleMap();
-    this.publicBalMap = new Map<PublicKey, Field>();
+    this.publicBalMap = new Map<PublicKey, {index:bigint, balance:Field}>();
     this.serverPort = serverPort;
 
     //express server to return tree root and witness using rest api
     if (serverPort > 0) {
       this.app = express();
+      this.app.use(cors());
       this.app.get('/:tree/:fn', (req: Request, res: Response) => {
         let tree: MerkleTree | MerkleMap;
         switch (req.params.tree) {
@@ -59,7 +62,7 @@ class MerkleListener {
             if (req.query.index) {
               let w;
               if (tree instanceof MerkleTree) {
-                w = tree.getWitness(BigInt(req.query.index.toString()));
+                w = new MerkleWitness32(tree.getWitness(BigInt(req.query.index.toString())));
               } else {
                 w = tree.getWitness(Field(req.query.index.toString()));
               }
@@ -71,9 +74,9 @@ class MerkleListener {
           case 'balance':
             if(req.params.tree == 'public'){
               if(req.query.address){
-                const bal = this.publicBalMap.get(PublicKey.fromBase58(req.query.address?.toString()));
-                if(bal)
-                  res.json(bal.toJSON());
+                const rsl = this.publicBalMap.get(PublicKey.fromBase58(req.query.address?.toString()));
+                if(rsl)
+                  res.json({index: rsl.index, balance: rsl.balance.toJSON()});
               }
               res.status(404);
             }
@@ -105,7 +108,7 @@ class MerkleListener {
   async fetchEvents() {
     //fetch events
     const events = await this.coinInstance.fetchEvents(
-      UInt32.from(this.lastFetched)
+      UInt32.from(this.lastFetched.add(1))
     );
 
     let public_leaf: Field = Field(-1);
@@ -137,7 +140,7 @@ class MerkleListener {
             public_address != null
           ) {
             public_leaf = this.publicLeaf(public_address, public_balance);
-            this.publicBalMap.set(public_address, public_balance);
+            this.publicBalMap.set(public_address, {index: public_index, balance: public_balance});
             this.publicTree.setLeaf(public_index, public_leaf);
             public_balance = Field(-1);
             public_address = null;
